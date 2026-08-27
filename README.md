@@ -4,6 +4,8 @@
 [![release](https://img.shields.io/github/v/release/troglodytto/prizm?sort=semver)](https://github.com/troglodytto/prizm/releases)
 [![go reference](https://pkg.go.dev/badge/github.com/troglodytto/prizm.svg)](https://pkg.go.dev/github.com/troglodytto/prizm)
 
+**Make envs bearable again.**
+
 Share environment files across repos, grouped by the workflow you want to run.
 
 ```bash
