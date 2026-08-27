@@ -78,11 +78,19 @@ jobs:
 
           # A cross-build that silently produced the host architecture would
           # ship a binary that cannot start on the machine it is named for.
-          file prizm
-          case "${{ matrix.goarch }}" in
-            amd64) file prizm | grep -q "x86_64" || exit 1 ;;
-            arm64) file prizm | grep -qE "arm64|aarch64" || exit 1 ;;
-          esac
+          #
+          # Read the target out of the binary rather than parsing file(1):
+          # Linux prints "x86-64" and macOS "x86_64" for the same thing, and
+          # matching one spelling failed the native Linux build — a check
+          # that breaks correct builds is worse than no check.
+          built="$(go version -m prizm |
+            awk -F'[\t=]' '$3=="GOOS"{o=$4} $3=="GOARCH"{a=$4} END{print o"/"a}')"
+          echo "built ${built}"
+
+          [ "${built}" = "${{ matrix.goos }}/${{ matrix.goarch }}" ] || {
+            echo "wanted ${{ matrix.goos }}/${{ matrix.goarch }}" >&2
+            exit 1
+          }
 
       - name: Verify the binary runs
         # Only where the runner can execute what it just built. A release that
