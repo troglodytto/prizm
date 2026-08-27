@@ -5,3 +5,6 @@
 # Go
 *.test
 *.out
+
+# Local notes, not for the repo
+/.notes/
