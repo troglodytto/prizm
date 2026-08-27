@@ -396,7 +396,7 @@ git commit -m "feat(config): XDG-aware path resolution and project scaffold"
 - Consumes: nothing (pure package, stdlib only).
 - Produces:
   - `envfile.Parse(text string) (map[string]string, error)` — parses `.env` text. Accepts optional `export ` prefix, `#` comments, blank lines, single- and double-quoted values (double-quoted values interpret `\n`, `\r`, `\t`, `\\`, `\"`; single-quoted are literal). Returns an error naming the 1-based line number on a malformed line.
-  - `envfile.Render(vars map[string]string) string` — deterministic output: keys sorted ascending, one `KEY=value` per line, trailing newline. Values are emitted bare when they match `^[A-Za-z0-9_@%+=:,./-]*$`, otherwise double-quoted with `\`, `"`, newline, carriage return and tab escaped.
+  - `envfile.Render(vars map[string]string) string` — deterministic output: keys sorted ascending, one `KEY=value` per line, trailing newline. Values are emitted bare when they match `^[A-Za-z0-9_@%+=:,./-]*$`, otherwise double-quoted with `\`, `"`, newline, carriage return and tab escaped. `?` is bare-safe (inert on a shell assignment's right-hand side, and query-string DSNs are everywhere); `&` and `;` are not.
 
 Why per-key maps rather than raw text: the spec calls for key-level diffing (audit, sync, divergence warnings) so that editor key-reordering is not mistaken for a change. Every layer in prizm is a `map[string]string`; text is only an edge format.
 
@@ -697,7 +697,7 @@ import (
 	"strings"
 )
 
-var bareSafe = regexp.MustCompile(`^[A-Za-z0-9_@%+=:,./-]*$`)
+var bareSafe = regexp.MustCompile(`^[A-Za-z0-9_@%+=:,./?-]*$`)
 
 // Render writes vars as .env text with keys in ascending order.
 func Render(vars map[string]string) string {
