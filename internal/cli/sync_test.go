@@ -232,3 +232,56 @@ func TestSyncCleanRepoSaysNothingToDo(t *testing.T) {
 		t.Errorf("output = %q, want a nothing-to-do message", h.out.String())
 	}
 }
+
+// sync used to regenerate a shared file from the database, which destroyed
+// anything written but not yet loaded with shared-sync — silently, while
+// reporting success.
+func TestSyncKeepsUnsyncedEditsInASharedFile(t *testing.T) {
+	h := newHarness(t)
+	fixedClock(t)
+	authDir, _ := h.seedSync(t)
+	h.run(t, "up", "k", "local")
+
+	g, _ := h.app.Store.GroupByName("k")
+	wf, _ := h.app.Store.WorkflowByName(g.ID, "local")
+	bag, _ := h.app.Store.SharedGroupByName(wf.ID, "db")
+
+	// The fixture's bag has no backing file; give it one.
+	bagPath := filepath.Join(t.TempDir(), "db.env")
+	if err := h.app.Store.SetSharedGroupFile(bag.ID, bagPath); err != nil {
+		t.Fatalf("SetSharedGroupFile: %v", err)
+	}
+	bag.FilePath = bagPath
+
+	// What the user has on disk: a synced key, plus a comment and a key they
+	// have written but not yet loaded.
+	const handWritten = "# prizm:repos auth,backend\n" +
+		"SHARED=one\n" +
+		"\n" +
+		"# rotate me in Q3\n" +
+		"NEW_KEY=notyetsynced\n"
+	if err := os.WriteFile(bag.FilePath, []byte(handWritten), 0o600); err != nil {
+		t.Fatalf("writing bag file: %v", err)
+	}
+
+	// A hand-edit to the repo drives sync to update the shared value.
+	editApplied(t, authDir, "PORT=4000\nSHARED=two\n")
+	if err := h.run(t, "sync", "k", "auth", "--yes"); err != nil {
+		t.Fatalf("sync: %v", err)
+	}
+
+	raw, err := os.ReadFile(bag.FilePath)
+	if err != nil {
+		t.Fatalf("reading back: %v", err)
+	}
+	got := string(raw)
+
+	if !strings.Contains(got, "SHARED=two") {
+		t.Errorf("the synced key was not updated:\n%s", got)
+	}
+	for _, want := range []string{"NEW_KEY=notyetsynced", "# rotate me in Q3", "# prizm:repos"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("sync destroyed %q:\n%s", want, got)
+		}
+	}
+}

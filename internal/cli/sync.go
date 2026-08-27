@@ -387,7 +387,11 @@ func writeSharedValue(app *App, origin resolve.Origin, key, value string) error 
 		if err := app.Store.SetGroupVar(origin.GroupID, key, value); err != nil {
 			return err
 		}
-		return rewriteGlobalFile(app, origin.GroupID)
+		path, err := groupFilePath(app, origin.GroupID)
+		if err != nil || path == "" {
+			return err
+		}
+		return patchKeyInFile(path, key, value)
 	}
 
 	if origin.SharedGroupID == 0 {
@@ -404,7 +408,7 @@ func writeSharedValue(app *App, origin resolve.Origin, key, value string) error 
 	if bag.FilePath == "" {
 		return nil
 	}
-	return writeBagFile(app, bag.ID, bag.FilePath)
+	return patchKeyInFile(bag.FilePath, key, value)
 }
 
 func (a *App) canResolve() bool {

@@ -146,6 +146,29 @@ func filepathDir(p string) string {
 
 // rewriteGlobalFile re-materialises a group's global file after prizm changes
 // one of its values, so the file and the database do not disagree.
+// groupFilePath returns the file backing a group's global layer, or "" if
+// there is none on disk.
+func groupFilePath(app *App, groupID int64) (string, error) {
+	groups, err := app.Store.ListGroups()
+	if err != nil {
+		return "", err
+	}
+	for _, g := range groups {
+		if g.ID != groupID {
+			continue
+		}
+		path, err := config.GlobalPath(g.Name)
+		if err != nil {
+			return "", err
+		}
+		if _, statErr := os.Stat(path); statErr != nil {
+			return "", nil
+		}
+		return path, nil
+	}
+	return "", nil
+}
+
 func rewriteGlobalFile(app *App, groupID int64) error {
 	groups, err := app.Store.ListGroups()
 	if err != nil {

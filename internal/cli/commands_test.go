@@ -26,6 +26,12 @@ const wfStamp = "PRIZM_WORKFLOW=local\n"
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 
+	// Point every path prizm derives at a temp dir. Without this the suite
+	// takes the real ~/.local/share/prizm/apply.lock and writes built env
+	// files into the user's actual data directory — it left stray groups
+	// there. A test must not be able to touch what it is testing.
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
+
 	s, err := store.Open(filepath.Join(t.TempDir(), "prizm.db"), crypto.Plaintext{})
 	if err != nil {
 		t.Fatalf("store.Open() error = %v", err)
