@@ -42,26 +42,75 @@ func (s *Store) rename(kind, query, name string, id int64) error {
 
 // DeleteGroup removes a group and everything under it.
 func (s *Store) DeleteGroup(id int64) error {
-	_, err := s.db.Exec(`DELETE FROM "groups" WHERE id = ?`, id)
-	return err
+	return s.deleteWithHistory(
+		`DELETE FROM "groups" WHERE id = ?`, id,
+		// Every timeline that belongs to this group: its own, its repos'
+		// wiring, its workflows' bags, and each repo+workflow pair.
+		`scope_kind = 'group' AND scope_a = ?`,
+		`scope_kind = 'repo' AND scope_a IN (SELECT id FROM repos WHERE group_id = ?)`,
+		`scope_kind = 'shared_group' AND scope_a IN (
+			SELECT sg.id FROM shared_groups sg
+			JOIN workflows w ON w.id = sg.workflow_id WHERE w.group_id = ?)`,
+		`scope_kind = 'workflow_repo' AND scope_a IN (SELECT id FROM workflows WHERE group_id = ?)`,
+	)
 }
 
 // DeleteRepo removes a repo, its variables, and its membership everywhere.
 func (s *Store) DeleteRepo(id int64) error {
-	_, err := s.db.Exec(`DELETE FROM repos WHERE id = ?`, id)
-	return err
+	return s.deleteWithHistory(`DELETE FROM repos WHERE id = ?`, id,
+		`scope_kind = 'repo' AND scope_a = ?`,
+		`scope_kind = 'workflow_repo' AND scope_b = ?`,
+	)
 }
 
 // DeleteWorkflow removes a workflow, its bags and its variables.
 func (s *Store) DeleteWorkflow(id int64) error {
-	_, err := s.db.Exec(`DELETE FROM workflows WHERE id = ?`, id)
-	return err
+	return s.deleteWithHistory(`DELETE FROM workflows WHERE id = ?`, id,
+		`scope_kind = 'workflow_repo' AND scope_a = ?`,
+		`scope_kind = 'shared_group' AND scope_a IN (
+			SELECT id FROM shared_groups WHERE workflow_id = ?)`,
+	)
 }
 
 // DeleteSharedGroup removes a shared bag and its variables.
 func (s *Store) DeleteSharedGroup(id int64) error {
-	_, err := s.db.Exec(`DELETE FROM shared_groups WHERE id = ?`, id)
-	return err
+	return s.deleteWithHistory(`DELETE FROM shared_groups WHERE id = ?`, id,
+		`scope_kind = 'shared_group' AND scope_a = ?`,
+	)
+}
+
+// deleteWithHistory removes a row and the snapshot timelines addressed to it,
+// in one transaction.
+//
+// Snapshots are addressed by (kind, id) rather than by a foreign key, so
+// nothing cascades them away. That would be a slow leak on its own; what makes
+// it a disclosure is that SQLite reissues a freed rowid to the next row
+// inserted. Delete a repo and create another, and the new one inherits the old
+// one's id — and with it, an audit trail holding the deleted repo's values in
+// full. `audit --restore` would then write them into a repo that never had
+// them.
+func (s *Store) deleteWithHistory(del string, id int64, scopes ...string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, where := range scopes {
+		if _, err := tx.Exec(
+			`DELETE FROM snapshot_vars WHERE snapshot_id IN (
+				SELECT id FROM snapshots WHERE `+where+`)`, id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`DELETE FROM snapshots WHERE `+where, id); err != nil {
+			return err
+		}
+	}
+
+	if _, err := tx.Exec(del, id); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // DeleteRepoVar removes a key from the repo-shared layer.
