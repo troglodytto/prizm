@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -47,6 +48,7 @@ func newVarCmd(app *App) *cobra.Command {
 				}
 			}
 
+			app.snapshot(varScope(wf, repo, workflow != ""), store.SourceVar, varNote(assignments))
 			app.result(style.OK, repo.Name, fmt.Sprintf("%d variable(s) set%s", len(assignments), scopeSuffix(workflow)))
 			return nil
 		},
@@ -93,6 +95,7 @@ func newImportCmd(app *App) *cobra.Command {
 				}
 			}
 
+			app.snapshot(varScope(wf, repo, workflow != ""), store.SourceImport, "import "+filepath.Base(path))
 			app.result(style.OK, repo.Name, fmt.Sprintf("%d variable(s) imported%s", len(vars), scopeSuffix(workflow)))
 			return nil
 		},
@@ -100,6 +103,31 @@ func newImportCmd(app *App) *cobra.Command {
 
 	cmd.Flags().StringVar(&workflow, "workflow", "", "scope the imported variables to one workflow")
 	return cmd
+}
+
+// varNote summarises an edit for the history list: the keys touched, since
+// values are the thing you are trying to recover and a preview of them here
+// would put secrets in a listing that decrypts nothing else.
+func varNote(assignments []string) string {
+	keys := make([]string, 0, len(assignments))
+	for _, a := range assignments {
+		key, _, _ := strings.Cut(a, "=")
+		keys = append(keys, key)
+	}
+	return summariseKeys(keys)
+}
+
+// unsetNote mirrors varNote for removals.
+func unsetNote(keys []string) string {
+	return "unset " + summariseKeys(keys)
+}
+
+// summariseKeys keeps a note to a readable width.
+func summariseKeys(keys []string) string {
+	if len(keys) > 3 {
+		return fmt.Sprintf("%s +%d more", strings.Join(keys[:3], ", "), len(keys)-3)
+	}
+	return strings.Join(keys, ", ")
 }
 
 // writeVar puts a variable in the repo-shared layer, or the repo+workflow

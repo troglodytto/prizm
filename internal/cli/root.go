@@ -36,6 +36,9 @@ type App struct {
 	PickMany func(title string, options []tui.Option, preselected []string) ([]string, error)
 	Resolve  func(title string, rows []tui.ResolveRow) ([]int, error)
 
+	// PickHistory scrubs a version timeline and returns the one to restore.
+	PickHistory func(title string, versions []tui.Version) (tui.Version, bool, error)
+
 	pickerInjected bool
 }
 
@@ -107,6 +110,7 @@ func commandsOf(app *App) []*cobra.Command {
 		newUpCmd(app),
 		newStatusCmd(app),
 		newSyncCmd(app),
+		newAuditCmd(app),
 		newRepairCmd(app),
 		newRenameCmd(app),
 		newRemoveCmd(app),
@@ -150,6 +154,7 @@ func Execute() int {
 	app.PickOne = tui.PickOne
 	app.PickMany = tui.PickMany
 	app.Resolve = tui.Resolve
+	app.PickHistory = tui.History
 
 	root := NewRootCmd(app)
 	root.SetArgs(rewriteArgs(app, root, os.Args[1:]))

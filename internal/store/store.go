@@ -126,6 +126,29 @@ CREATE TABLE IF NOT EXISTS workflow_repo_vars (
 	PRIMARY KEY (workflow_id, repo_id, key)
 );
 
+-- Every variable write records the resulting state of its scope, so history
+-- exists before anyone thinks to ask for it. Content is hashed so re-running
+-- a command that changes nothing does not add a version.
+CREATE TABLE IF NOT EXISTS snapshots (
+	id           INTEGER PRIMARY KEY,
+	scope_kind   TEXT    NOT NULL,
+	scope_a      INTEGER NOT NULL,
+	scope_b      INTEGER NOT NULL,
+	content_hash TEXT    NOT NULL,
+	source       TEXT    NOT NULL,
+	note         TEXT    NOT NULL DEFAULT '',
+	created_at   INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_snapshots_scope
+	ON snapshots(scope_kind, scope_a, scope_b, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS snapshot_vars (
+	snapshot_id INTEGER NOT NULL REFERENCES snapshots(id) ON DELETE CASCADE,
+	key         TEXT    NOT NULL,
+	value       BLOB    NOT NULL,
+	PRIMARY KEY (snapshot_id, key)
+);
+
 -- What is currently linked where.
 CREATE TABLE IF NOT EXISTS applied (
 	repo_id     INTEGER PRIMARY KEY REFERENCES repos(id)     ON DELETE CASCADE,

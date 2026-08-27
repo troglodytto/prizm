@@ -268,28 +268,57 @@ func summarise(plan syncplan.Plan, decisions map[string]syncplan.Decision) strin
 }
 
 func applyPlan(app *App, wf store.Workflow, repo store.Repo, plan syncplan.Plan, decisions map[string]syncplan.Decision) error {
+	// A sync can write across several layers at once. Snapshot each one it
+	// could have touched afterwards; an untouched scope hashes identically to
+	// its last version and records nothing.
+	touched := map[store.Scope]bool{}
+	defer func() {
+		for scope := range touched {
+			app.snapshot(scope, store.SourceSync, "sync "+repo.Name)
+		}
+	}()
+
 	for _, item := range plan.Items {
 		switch decisions[item.Key] {
 		case syncplan.DecideSkip:
 			continue
 
 		case syncplan.DecidePin:
+			touched[store.WorkflowRepoScope(wf.ID, repo.ID)] = true
 			if err := app.Store.SetWorkflowRepoVar(wf.ID, repo.ID, item.Key, item.To); err != nil {
 				return err
 			}
 
 		case syncplan.DecideUpdateShared:
+			touched[sharedScope(item.RefOrigin)] = true
 			if err := writeSharedValue(app, item.RefOrigin, item.RefName, item.To); err != nil {
 				return err
 			}
 
 		case syncplan.DecideApply:
+			touched[itemScope(wf, repo, item)] = true
 			if err := applyItem(app, wf, repo, item); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+// itemScope names the timeline an applied item lands on.
+func itemScope(wf store.Workflow, repo store.Repo, item syncplan.Item) store.Scope {
+	if item.Origin.Kind == resolve.LayerRepoShared {
+		return store.RepoScope(repo.ID)
+	}
+	return store.WorkflowRepoScope(wf.ID, repo.ID)
+}
+
+// sharedScope names the timeline behind a shared value.
+func sharedScope(origin resolve.Origin) store.Scope {
+	if origin.Kind == resolve.LayerGroup {
+		return store.GroupScope(origin.GroupID)
+	}
+	return store.SharedGroupScope(origin.SharedGroupID)
 }
 
 func applyItem(app *App, wf store.Workflow, repo store.Repo, item syncplan.Item) error {

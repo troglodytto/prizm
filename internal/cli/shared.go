@@ -240,6 +240,7 @@ func syncBag(app *App, bag store.SharedGroupRef, yes bool) error {
 		}
 	}
 
+	defer app.snapshot(store.SharedGroupScope(bag.ID), store.SourceSharedSync, "shared-sync")
 	if err := app.Store.ReplaceSharedGroupVars(bag.ID, incoming); err != nil {
 		return err
 	}

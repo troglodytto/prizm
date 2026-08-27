@@ -210,3 +210,60 @@ func (s *Store) queryVars(query string, args ...any) (map[string]string, error) 
 	}
 	return out, rows.Err()
 }
+
+// ReplaceRepoVars makes the repo-shared layer exactly vars.
+func (s *Store) ReplaceRepoVars(repoID int64, vars map[string]string) error {
+	return s.replaceVars(vars,
+		`DELETE FROM repo_vars WHERE repo_id = ?`,
+		`INSERT INTO repo_vars(repo_id, key, value, updated_at) VALUES (?, ?, ?, ?)`,
+		[]any{repoID}, func(key string, blob []byte, now int64) []any {
+			return []any{repoID, key, blob, now}
+		})
+}
+
+// ReplaceWorkflowRepoVars makes one repo's workflow layer exactly vars.
+func (s *Store) ReplaceWorkflowRepoVars(workflowID, repoID int64, vars map[string]string) error {
+	return s.replaceVars(vars,
+		`DELETE FROM workflow_repo_vars WHERE workflow_id = ? AND repo_id = ?`,
+		`INSERT INTO workflow_repo_vars(workflow_id, repo_id, key, value, updated_at) VALUES (?, ?, ?, ?, ?)`,
+		[]any{workflowID, repoID}, func(key string, blob []byte, now int64) []any {
+			return []any{workflowID, repoID, key, blob, now}
+		})
+}
+
+// replaceVars swaps a layer's contents in one transaction, so a failure
+// half-way leaves the old layer intact rather than a partial one.
+func (s *Store) replaceVars(
+	vars map[string]string,
+	clear, insert string,
+	clearArgs []any,
+	insertArgs func(key string, blob []byte, now int64) []any,
+) error {
+	for key := range vars {
+		if err := checkKey(key); err != nil {
+			return err
+		}
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(clear, clearArgs...); err != nil {
+		return err
+	}
+
+	stamp := time.Now().Unix()
+	for key, value := range vars {
+		blob, err := s.cipher.Encrypt(value)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(insert, insertArgs(key, blob, stamp)...); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}

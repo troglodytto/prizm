@@ -4,8 +4,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-
-	"github.com/troglodytto/prizm/internal/store"
 )
 
 // Positional completion.
@@ -268,11 +266,18 @@ func registerScopedFlags(app *App, cmd *cobra.Command) {
 	}
 	if cmd.Flag("bag") != nil {
 		_ = cmd.RegisterFlagCompletionFunc("bag",
-			func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-				return app.completeBags(app.scopeGroup(args), "", toComplete)
+			func(c *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+				// A bag belongs to one workflow, so if --workflow is already
+				// on the line, only that workflow's bags are candidates.
+				return app.completeBags(app.scopeGroup(args), flagValue(c, "workflow"), toComplete)
 			})
 	}
 }
 
-// unusedStore keeps the store import honest if the helpers above change.
-var _ = store.Group{}
+// flagValue reads a flag already typed on the line, or "" if it is absent.
+func flagValue(cmd *cobra.Command, name string) string {
+	if f := cmd.Flag(name); f != nil {
+		return f.Value.String()
+	}
+	return ""
+}

@@ -218,6 +218,7 @@ func newUnsetCmd(app *App) *cobra.Command {
 						return err
 					}
 				}
+				app.snapshot(store.GroupScope(g.ID), store.SourceUnset, unsetNote(keys))
 				app.result(style.OK, g.Name, fmt.Sprintf("%s removed (global)", plural(len(keys), "variable")))
 				return nil
 			}
@@ -243,6 +244,7 @@ func newUnsetCmd(app *App) *cobra.Command {
 				}
 			}
 
+			app.snapshot(varScope(wf, repo, workflow != ""), store.SourceUnset, unsetNote(keys))
 			app.result(style.OK, repo.Name,
 				fmt.Sprintf("%s removed%s", plural(len(keys), "variable"), scopeSuffix(workflow)))
 			return nil
