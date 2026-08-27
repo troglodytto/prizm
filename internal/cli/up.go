@@ -118,8 +118,8 @@ func previewWorkflow(app *App, g store.Group, wf store.Workflow) error {
 		for _, key := range diff.Removed {
 			app.detail("  - %s", key)
 		}
-		for _, key := range diff.Changed {
-			app.detail("  ~ %s", key)
+		for _, change := range diff.Changed {
+			app.detail("  ~ %s   %s → %s", change.Key, change.From, change.To)
 		}
 	}
 
@@ -162,7 +162,11 @@ func previewRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo) (m
 		onDisk = map[string]string{}
 	}
 
-	return expected, sharedfile.Compare(expected, onDisk), nil
+	// Argument order matters and is the opposite of drift's. drift asks "how
+	// has this file drifted from what prizm would write", so it passes
+	// expected first and Added means a hand-added key. A preview asks "what
+	// would writing do to this file", so the file is the baseline.
+	return expected, sharedfile.Compare(onDisk, expected), nil
 }
 
 // previewSummary counts the moves rather than repeating them, since the

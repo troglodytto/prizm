@@ -283,11 +283,39 @@ func TestDryRunWritesNothing(t *testing.T) {
 	}
 
 	out := h.out.String()
-	if !strings.Contains(out, "PORT") {
-		t.Errorf("output = %q, want the keys that would be written", out)
+	if !strings.Contains(out, "+ PORT") {
+		t.Errorf("output = %q, want PORT as an addition — there is no file yet", out)
+	}
+	if strings.Contains(out, "- PORT") {
+		t.Errorf("output = %q, want it not reported as a removal", out)
 	}
 	if !strings.Contains(out, "dry run") {
 		t.Errorf("output = %q, want it to say nothing was written", out)
+	}
+}
+
+func TestDryRunReportsChangesInTheDirectionOfTheWrite(t *testing.T) {
+	h := newHarness(t)
+	dir := h.repoDir(t, "auth")
+
+	h.run(t, "init", "k")
+	h.run(t, "add-repo", "k", "auth", "--path", dir)
+	h.run(t, "add-workflow", "k", "local", "--repos", "auth")
+	h.run(t, "var", "k", "auth", "PORT=4000", "GOING=away")
+	h.run(t, "up", "k", "local")
+
+	h.run(t, "var", "k", "auth", "PORT=9999", "ARRIVING=new")
+	h.run(t, "unset", "k", "auth", "GOING")
+
+	if err := h.run(t, "up", "k", "local", "--dry-run"); err != nil {
+		t.Fatalf("dry run: %v", err)
+	}
+
+	out := h.out.String()
+	for _, want := range []string{"+ ARRIVING", "- GOING", "~ PORT"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output = %q, want %q", out, want)
+		}
 	}
 }
 
