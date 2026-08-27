@@ -28,6 +28,63 @@ var (
 	filterStyle    = lipgloss.NewStyle().Foreground(style.Yellow)
 )
 
+// selectionBG is the row highlight. Every segment of a selected row sets it
+// explicitly: a nested style that resets colour would punch a hole in the
+// band, so the background cannot be applied once around the outside.
+var selectionBG = lipgloss.Color("8")
+
+// rowStyles returns the styles for one row, background-aware so a highlighted
+// row stays a continuous band.
+func rowStyles(selected bool) (label, desc lipgloss.Style) {
+	if !selected {
+		return itemStyle, dimStyle
+	}
+	return lipgloss.NewStyle().Bold(true).Background(selectionBG),
+		lipgloss.NewStyle().Faint(true).Background(selectionBG)
+}
+
+// tagOn renders a tag inside a row, carrying the row's background so the
+// highlight is not broken by it.
+func tagOn(tag string, selected bool) string {
+	if tag == "" {
+		return ""
+	}
+
+	s := lipgloss.NewStyle().Bold(true).Foreground(style.TagColor(tag))
+	if selected {
+		s = s.Background(selectionBG)
+	}
+	return s.Render("(" + tag + ")")
+}
+
+// padTo fills to width so a highlighted row is a rectangle. Unselected rows
+// get nothing — padding them only leaves trailing whitespace behind.
+func padTo(s string, width int, selected bool) string {
+	if !selected {
+		return ""
+	}
+
+	fill := width - lipgloss.Width(s)
+	if fill <= 0 {
+		return ""
+	}
+	return lipgloss.NewStyle().Background(selectionBG).Render(strings.Repeat(" ", fill))
+}
+
+// padLabel aligns the label column on every row, highlighted or not.
+func padLabel(s string, width int, selected bool) string {
+	fill := width - lipgloss.Width(s)
+	if fill <= 0 {
+		return ""
+	}
+
+	spaces := strings.Repeat(" ", fill)
+	if selected {
+		return lipgloss.NewStyle().Background(selectionBG).Render(spaces)
+	}
+	return spaces
+}
+
 // bar marks the row under the cursor.
 const (
 	bar       = "▌ "
@@ -63,12 +120,4 @@ type Option struct {
 	Label string
 	Desc  string
 	Tag   string
-}
-
-// badge renders a workflow tag using the shared semantic palette.
-func badge(tag string) string {
-	if tag == "" {
-		return ""
-	}
-	return "  " + style.Tag(tag)
 }

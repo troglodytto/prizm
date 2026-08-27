@@ -162,25 +162,46 @@ func (m pickOneModel) View() string {
 		b.WriteString("  " + noBar + dimStyle.Render("nothing matches "+m.filter) + "\n")
 	}
 
-	width := 0
+	// One width for every row, so the highlight is a rectangle rather than a
+	// ragged edge.
+	labelWidth, rowWidth := 0, 0
 	for _, o := range visible {
-		if n := lipgloss.Width(o.Label); n > width {
-			width = n
+		if n := lipgloss.Width(o.Label); n > labelWidth {
+			labelWidth = n
+		}
+	}
+	for _, o := range visible {
+		w := labelWidth + 3 + lipgloss.Width(o.Desc)
+		if o.Tag != "" {
+			w += 2 + lipgloss.Width(o.Tag) + 2
+		}
+		if w > rowWidth {
+			rowWidth = w
 		}
 	}
 
 	for i, o := range visible {
-		marker, label := noBar, itemStyle.Render(o.Label)
-		if i == m.cursor {
-			marker, label = barStyle.Render(bar), selectedStyle.Render(o.Label)
+		selected := i == m.cursor
+		labelStyle, descStyle := rowStyles(selected)
+
+		marker := noBar
+		if selected {
+			marker = barStyle.Render(bar)
 		}
 
-		pad := strings.Repeat(" ", width-lipgloss.Width(o.Label))
-		row := "  " + marker + label + pad
-		if o.Desc != "" {
-			row += "   " + dimStyle.Render(o.Desc)
+		content := labelStyle.Render(o.Label) + padLabel(o.Label, labelWidth, selected)
+		content += descStyle.Render("   " + o.Desc)
+		if o.Tag != "" {
+			content += descStyle.Render("  ") + tagOn(o.Tag, selected)
 		}
-		b.WriteString(row + badge(o.Tag) + "\n")
+
+		plain := o.Label + strings.Repeat(" ", labelWidth-lipgloss.Width(o.Label)) + "   " + o.Desc
+		if o.Tag != "" {
+			plain += "  (" + o.Tag + ")"
+		}
+		content += padTo(plain, rowWidth, selected)
+
+		b.WriteString("  " + marker + content + "\n")
 	}
 
 	b.WriteString("\n  ")
