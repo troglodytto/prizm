@@ -8,6 +8,7 @@ import (
 
 	"github.com/troglodytto/prizm/internal/rank"
 	"github.com/troglodytto/prizm/internal/store"
+	"github.com/troglodytto/prizm/internal/style"
 	"github.com/troglodytto/prizm/internal/tui"
 )
 
@@ -258,7 +259,7 @@ var errCancelledByUser = errors.New("cancelled by user")
 func repoOptions(repos []store.Repo) []tui.Option {
 	out := make([]tui.Option, 0, len(repos))
 	for _, r := range repos {
-		out = append(out, tui.Option{Value: r.Name, Label: r.Name, Desc: r.Path})
+		out = append(out, tui.Option{Value: r.Name, Label: r.Name, Desc: style.Path(r.Path)})
 	}
 	return out
 }

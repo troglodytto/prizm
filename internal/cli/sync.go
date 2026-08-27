@@ -184,22 +184,32 @@ func decide(app *App, plan syncplan.Plan, yes bool) (map[string]syncplan.Decisio
 
 	rows := make([]tui.ResolveRow, 0, len(plan.Items))
 	for _, item := range plan.Items {
-		labels := make([]string, 0, 3)
-		for _, choice := range item.Choices() {
-			labels = append(labels, choice.Label())
+		choices := item.Choices()
+		labels := make([]string, 0, len(choices))
+		consequences := make([]string, 0, len(choices))
+
+		// Only updating the shared value reaches other repos. Pinning and
+		// skipping are, by definition, confined to this one.
+		spread := ""
+		if len(item.Consumers) > 1 {
+			spread = "also changes " + strings.Join(others(item.Consumers, plan.Repo.Name), ", ")
 		}
 
-		consequence := ""
-		if len(item.Consumers) > 1 {
-			consequence = "also changes " + strings.Join(item.Consumers, ", ")
+		for _, choice := range choices {
+			labels = append(labels, choice.Label())
+			if choice == syncplan.DecideUpdateShared {
+				consequences = append(consequences, spread)
+				continue
+			}
+			consequences = append(consequences, "")
 		}
 
 		rows = append(rows, tui.ResolveRow{
-			Key:         item.Key,
-			Detail:      describe(item),
-			Note:        item.Reason,
-			Consequence: consequence,
-			Choices:     labels,
+			Key:          item.Key,
+			Detail:       describe(item),
+			Note:         item.Reason,
+			Choices:      labels,
+			Consequences: consequences,
 		})
 	}
 
@@ -224,6 +234,18 @@ func readAppliedEnv(repo store.Repo) (map[string]string, error) {
 		return nil, fmt.Errorf("reading %s: %w", repo.EnvFile, err)
 	}
 	return envfile.Parse(string(raw))
+}
+
+// others drops the repo being synced from a consumer list: "also changes
+// auth" while syncing auth is noise, and makes the real list harder to read.
+func others(consumers []string, self string) []string {
+	out := make([]string, 0, len(consumers))
+	for _, name := range consumers {
+		if name != self {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 func itemMark(item syncplan.Item) style.Mark {

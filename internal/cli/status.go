@@ -95,7 +95,7 @@ func reportStatus(app *App, g store.Group) error {
 	case missing > 0:
 		app.hint("a repo's directory has moved — run `prizm repair %s <repo>`", g.Name)
 	case drifted > 0:
-		app.hint("drifted files were hand-edited; re-applying will overwrite them")
+		app.hint("hand-edited — `prizm sync` keeps the edit, `prizm up` discards it")
 	case unapplied == len(repos):
 		app.hint("nothing applied yet — run `prizm %s <workflow>`", g.Name)
 	}
@@ -145,7 +145,7 @@ func reportServices(app *App, g store.Group, applied map[int64]store.Applied, by
 func statusOf(report drift.Report, wf store.Workflow) (style.Mark, string) {
 	switch {
 	case report.Link == drift.PathMissing:
-		return style.Fail, "path missing — " + report.Repo.Path
+		return style.Fail, "path missing — " + style.Path(report.Repo.Path)
 
 	case report.Link == drift.NoFile:
 		return style.Warn, wf.Name + " · env file is gone"

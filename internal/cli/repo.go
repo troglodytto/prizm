@@ -75,7 +75,7 @@ func newAddRepoCmd(app *App) *cobra.Command {
 				return describeAddRepoError(g, name, err)
 			}
 
-			app.result(style.OK, repo.Name, fmt.Sprintf("%s (%s)", repo.Path, repo.EnvFile))
+			app.result(style.OK, repo.Name, fmt.Sprintf("%s (%s)", style.Path(repo.Path), repo.EnvFile))
 			return nil
 		},
 	}

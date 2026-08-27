@@ -106,7 +106,7 @@ func listGroup(app *App, name string) error {
 
 	app.section("  ", "repos")
 	for _, r := range repos {
-		app.field(col, r.Name, r.Path)
+		app.field(col, r.Name, style.Path(r.Path))
 	}
 
 	app.blank()

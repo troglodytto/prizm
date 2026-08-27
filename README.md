@@ -8,6 +8,8 @@ prizm platform local
 
 One command sets up `frontend`, `backend`, `auth` and `ai` — each with its own env file, built from its own layered configuration, symlinked into place.
 
+![prizm ls platform](docs/screenshots/ls.png)
+
 > **v0.5.0.** In daily use. Groups, repos and workflows; four layers of variables with interpolation; `status`, `sync`, `audit` with restore, `$EDITOR` editing, dry runs, an interactive picker, compose services, and directory-aware completion for all of it.
 
 ## The problem
@@ -73,18 +75,63 @@ Keys prefixed `_PRIZM_` are internal — referenceable from any template, never 
 
 ## Day to day
 
+**Where does everything stand?**
+
 ```bash
-prizm status platform             # which workflow each repo is on, and what has drifted
-prizm platform local --dry-run    # what would change, before it changes
-prizm sync platform backend       # you hand-edited a .env — keep it
-prizm edit platform backend       # open a whole layer in $EDITOR
-prizm audit platform backend --restore   # scrub the history, put a version back
-prizm platform                    # pick a workflow interactively; `e` edits instead
+prizm status platform
 ```
 
-`sync` is the one worth knowing about. Hand-edit a managed `.env` and it works out which layer each edit belongs to. A value that came from a shared bag is the interesting case — it asks whether to change it for every repo using that bag, or pin it to this one.
+![prizm status platform](docs/screenshots/status.png)
 
-Every write records the state it produced, so `audit` can show what a layer looked like an hour ago and put it back. The restore is itself a version, so an unwanted one undoes the same way.
+Which workflow each repo is on, and which files have been hand-edited since.
+
+**What would this change?**
+
+```bash
+prizm platform local --dry-run
+```
+
+![prizm platform local --dry-run](docs/screenshots/dry-run.png)
+
+Nothing is written. A repo covered by the workflow but holding no variables for it is flagged rather than given a green tick — a silent gap in a tool that writes prod config is what bites someone at 2am.
+
+**You hand-edited a `.env`. Keep it.**
+
+```bash
+prizm sync platform auth
+```
+
+![prizm sync platform auth](docs/screenshots/sync.png)
+
+`sync` works out which layer each edit belongs to. A value that came from a shared bag is the interesting case, and it asks rather than guessing:
+
+![the sync decision list](docs/screenshots/resolve.png)
+
+`←→` cycles the answer for a row, `↑↓` moves between them, `⏎` applies them all. Changing the shared value moves every repo using that bag; pinning breaks the link for this one repo only.
+
+**What did this used to be?**
+
+```bash
+prizm audit platform auth
+```
+
+![prizm audit platform auth](docs/screenshots/audit.png)
+
+Every write records the state it produced, so history exists before you think to ask for it. `--restore` turns that list into a carousel:
+
+![the history carousel](docs/screenshots/carousel.png)
+
+`←→` scrubs; each version shows what restoring it would do to the *current* state, in the direction it would move. The restore is itself a version, so an unwanted one undoes the same way.
+
+**Just show me the options.**
+
+```bash
+prizm platform
+```
+
+![the workflow picker](docs/screenshots/picker.png)
+
+`/` filters, `⏎` applies, and `e` opens that repo's layer in `$EDITOR` instead — the same path `prizm edit` takes.
 
 ## Services
 
@@ -135,6 +182,20 @@ alias pzm=prizm
 compdef pzm=prizm         # zsh
 complete -F _prizm pzm    # bash
 ```
+
+## Screenshots
+
+Every image above is the real output of the command beside it, rendered by
+[`docs/screenshots/generate.sh`](docs/screenshots/generate.sh) against a
+throwaway sandbox. Regenerate them after a change to the visual layer:
+
+```bash
+go install github.com/charmbracelet/freeze@latest
+./docs/screenshots/generate.sh
+```
+
+Nothing is hand-edited, which is the point — a doctored screenshot stops
+being evidence that the tool looks like that.
 
 ## License
 

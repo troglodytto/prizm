@@ -126,7 +126,7 @@ func syncGlobal(app *App, g store.Group, yes bool) error {
 		}
 	}
 
-	defer app.snapshot(store.GroupScope(g.ID), store.SourceSharedSync, "shared-sync (global)")
+	defer app.snapshot(store.GroupScope(g.ID), store.SourceSharedSync, "global.env")
 	if err := app.Store.ReplaceGroupVars(g.ID, incoming); err != nil {
 		return err
 	}

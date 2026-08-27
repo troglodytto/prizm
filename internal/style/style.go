@@ -12,6 +12,7 @@ package style
 
 import (
 	"hash/fnv"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -273,4 +274,26 @@ func Flags(block string) string {
 		out = append(out, commandStyle.Render(line[:split])+detailStyle.Render(line[split:]))
 	}
 	return strings.Join(out, "\n")
+}
+
+// Path renders a filesystem path for display, abbreviating the user's home
+// directory to ~.
+//
+// Repo paths are stored absolute, which is the right thing for a contract but
+// the wrong thing to read: in a listing of four repos under the same home
+// directory, the shared prefix is the widest thing on screen and the least
+// informative. Only the display is abbreviated — nothing round-trips through
+// this.
+func Path(path string) string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" || home == "/" {
+		return path
+	}
+	if path == home {
+		return "~"
+	}
+	if strings.HasPrefix(path, home+string(os.PathSeparator)) {
+		return "~" + path[len(home):]
+	}
+	return path
 }

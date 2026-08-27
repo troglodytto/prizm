@@ -11,11 +11,25 @@ import (
 
 // ResolveRow is one decision the user has to make.
 type ResolveRow struct {
-	Key         string
-	Detail      string // what changed
-	Note        string // why it needs a decision
-	Consequence string // what else moves if they say yes
-	Choices     []string
+	Key    string
+	Detail string // what changed
+	Note   string // why it needs a decision
+
+	Choices []string
+	// Consequences is parallel to Choices: what each one would do beyond
+	// this repo. It is per choice, not per row, because the whole question
+	// being asked is which choices reach further than this repo — showing
+	// one row-wide warning next to "pin to auth only" says the opposite of
+	// what that choice does.
+	Consequences []string
+}
+
+// consequence returns the warning for a choice, if it has one.
+func (r ResolveRow) consequence(choice int) string {
+	if choice < 0 || choice >= len(r.Consequences) {
+		return ""
+	}
+	return r.Consequences[choice]
 }
 
 type resolveModel struct {
@@ -147,8 +161,8 @@ func (m resolveModel) View() string {
 		}
 
 		line := "      " + chevron(selected) + choiceStyle(selected).Render(choice)
-		if row.Consequence != "" {
-			line += "   " + warnStyle.Render(row.Consequence)
+		if c := row.consequence(m.chosen[i]); c != "" {
+			line += "   " + warnStyle.Render(c)
 		}
 		b.WriteString(line + "\n\n")
 	}
