@@ -3,12 +3,20 @@
 Share environment files across repos, grouped by the workflow you want to run.
 
 ```bash
-prizm platform local
+prizm <group> <workflow>
 ```
 
-One command sets up `frontend`, `backend`, `auth` and `ai` — each with its own env file, built from its own layered configuration, symlinked into place.
+Both are names you pick. A **group** is one project spread across several repos; a **workflow** is a named bundle of those repos plus the variables they need.
 
-![prizm ls platform](docs/screenshots/ls.png)
+Throughout this README the group is called `my-saas-platform` and it owns four repos — `frontend`, `backend`, `auth` and `ai`. Substitute your own:
+
+```bash
+prizm my-saas-platform local
+```
+
+One command sets all four up, each with its own env file, built from its own layered configuration and symlinked into place.
+
+![prizm ls my-saas-platform](docs/screenshots/ls.png)
 
 > **v0.5.0.** In daily use. Groups, repos and workflows; four layers of variables with interpolation; `status`, `sync`, `audit` with restore, `$EDITOR` editing, dry runs, an interactive picker, compose services, and directory-aware completion for all of it.
 
@@ -18,25 +26,75 @@ You have a project spread across several repos. Running it locally means a `.env
 
 Copying files around doesn't fix it, because the *sets* differ. Working on the frontend against a deployed backend needs one repo configured. Running the full stack needs four. Debugging payments needs two. These aren't environments — they're workflows, and each one is a different bundle of repos.
 
+## Install
+
+```bash
+go install github.com/troglodytto/prizm@latest
+```
+
+Needs **Go 1.25 or newer**, and a C compiler the first time — storage is SQLite
+via cgo. Runs on **Linux and macOS**; Windows is not supported.
+
+Secrets are encrypted with a key from your OS keychain, so the first command
+that touches a value will ask the keychain for permission.
+
+## Quickstart
+
+Point prizm at two repos, describe one workflow, apply it:
+
+```bash
+prizm init my-saas-platform
+prizm add-repo my-saas-platform ~/code/frontend
+prizm add-repo my-saas-platform ~/code/backend
+
+prizm add-workflow my-saas-platform local   # ticks every repo; ⏎ accepts
+
+prizm var my-saas-platform backend  DATABASE_URL=postgres://localhost/dev PORT=4000
+prizm var my-saas-platform frontend NEXT_PUBLIC_API_URL=http://localhost:4000
+
+prizm my-saas-platform local
+```
+
+Both repos now have a `.env`. `prizm status my-saas-platform` shows where they
+stand, and `prizm my-saas-platform local --dry-run` shows what a run would
+change before it changes anything.
+
+Every prompt has a flag that skips it, so the same lines work in a script with
+no terminal attached — `add-workflow` without `--repos` covers every repo.
+
+Already have `.env` files worth keeping? Import instead of retyping:
+
+```bash
+prizm import my-saas-platform backend ~/code/backend/.env.local
+```
+
 ## The model
 
 A **group** owns **repos** — each pinned to a fixed path — and **workflows**. A workflow is a named bundle: an explicit subset of repos plus their variables.
 
 ```bash
-prizm init platform
-prizm add-repo platform frontend --path ~/code/frontend
-prizm add-repo platform backend  --path ~/code/backend
+prizm init <group>
+prizm add-repo <group> <repo> --path <path>
+prizm add-workflow <group> <workflow> [--repos <a,b>] [--tag prod|qa|local]
+```
 
-prizm add-workflow platform local                          # every repo
-prizm add-workflow platform frontend-only --repos frontend # just one
-prizm add-workflow platform production --tag prod          # guardrailed
+Which, with the names used here, is:
+
+```bash
+prizm init my-saas-platform
+prizm add-repo my-saas-platform frontend --path ~/code/frontend
+prizm add-repo my-saas-platform backend  --path ~/code/backend
+
+prizm add-workflow my-saas-platform local                          # every repo
+prizm add-workflow my-saas-platform frontend-only --repos frontend # just one
+prizm add-workflow my-saas-platform production --tag prod          # guardrailed
 ```
 
 Then switch between them:
 
 ```bash
-prizm platform local            # all four repos configured
-prizm platform frontend-only    # only the frontend; nothing else touched
+prizm my-saas-platform local            # all four repos configured
+prizm my-saas-platform frontend-only    # only the frontend; nothing else touched
 ```
 
 Variables merge in four layers, most specific winning: **group-global** (true everywhere in the group) → **repo-shared** (every workflow touching that repo) → **shared bag** (a named set scoped to a workflow and a subset of repos) → **repo + workflow** (the specific case).
@@ -78,30 +136,30 @@ Keys prefixed `_PRIZM_` are internal — referenceable from any template, never 
 **Where does everything stand?**
 
 ```bash
-prizm status platform
+prizm status my-saas-platform
 ```
 
-![prizm status platform](docs/screenshots/status.png)
+![prizm status my-saas-platform](docs/screenshots/status.png)
 
 Which workflow each repo is on, and which files have been hand-edited since.
 
 **What would this change?**
 
 ```bash
-prizm platform local --dry-run
+prizm my-saas-platform local --dry-run
 ```
 
-![prizm platform local --dry-run](docs/screenshots/dry-run.png)
+![prizm my-saas-platform local --dry-run](docs/screenshots/dry-run.png)
 
 Nothing is written. A repo covered by the workflow but holding no variables for it is flagged rather than given a green tick — a silent gap in a tool that writes prod config is what bites someone at 2am.
 
 **You hand-edited a `.env`. Keep it.**
 
 ```bash
-prizm sync platform auth
+prizm sync my-saas-platform auth
 ```
 
-![prizm sync platform auth](docs/screenshots/sync.png)
+![prizm sync my-saas-platform auth](docs/screenshots/sync.png)
 
 `sync` works out which layer each edit belongs to. A value that came from a shared bag is the interesting case, and it asks rather than guessing:
 
@@ -112,10 +170,10 @@ prizm sync platform auth
 **What did this used to be?**
 
 ```bash
-prizm audit platform auth
+prizm audit my-saas-platform auth
 ```
 
-![prizm audit platform auth](docs/screenshots/audit.png)
+![prizm audit my-saas-platform auth](docs/screenshots/audit.png)
 
 Every write records the state it produced, so history exists before you think to ask for it. `--restore` turns that list into a carousel:
 
@@ -126,7 +184,7 @@ Every write records the state it produced, so history exists before you think to
 **Just show me the options.**
 
 ```bash
-prizm platform
+prizm my-saas-platform
 ```
 
 ![the workflow picker](docs/screenshots/picker.png)
@@ -138,9 +196,9 @@ prizm platform
 A workflow can carry a compose stack, brought up after the env files are written:
 
 ```bash
-prizm docker platform local --compose ./local.yml --services db-tunnel
-prizm platform local     # writes the env files, then starts db-tunnel
-prizm down platform local
+prizm docker my-saas-platform local --compose ./local.yml --services db-tunnel
+prizm my-saas-platform local     # writes the env files, then starts db-tunnel
+prizm down my-saas-platform local
 ```
 
 Docker is deliberately best-effort and reported separately: if the daemon is closed, the env files are still written and `up` still succeeds. Each workflow gets its own compose project, so two workflows can share a compose file without adopting each other's containers.
@@ -157,13 +215,24 @@ A few decisions worth knowing before you rely on it:
 - **Ambiguity is refused, not guessed.** A command that could mean two repos, two layers, or two workflows stops and says which — quietly acting on the first one is how a destructive command becomes a surprise.
 - **Applies are exclusive.** Two `up` runs cannot interleave writes across the same repos; the second fails immediately rather than waiting.
 
-## Install
+## Where your data lives
 
-```bash
-go install github.com/troglodytto/prizm@latest
-```
+Everything is under `~/.local/share/prizm` (or `$XDG_DATA_HOME/prizm`), created
+owner-only:
 
-Requires Go 1.23 or newer.
+| Path | What |
+| --- | --- |
+| `prizm.db` | groups, repos, workflows, variables — values encrypted |
+| `shared/<group>/` | the bag files you edit by hand |
+| `built/<group>/<workflow>/` | the generated env files your repos link to |
+
+A managed repo's `.env` is a **symlink** into `built/`. The first time prizm
+takes over a repo that already had a real `.env`, it is renamed to
+`.env.prizm-backup.<timestamp>` rather than replaced.
+
+Values are AES-256-GCM encrypted with a key held in your OS keychain; variable
+*names* stay in plaintext, which is what keeps shell completion instant. Nothing
+is sent anywhere — prizm has no network access and no account.
 
 ## Shell completion
 

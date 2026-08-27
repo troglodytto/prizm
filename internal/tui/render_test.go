@@ -43,7 +43,7 @@ func TestRenderShowcase(t *testing.T) {
 
 	one := func() pickOneModel {
 		m := newPickOneModel("Select a workflow", workflows)
-		m.context = "platform"
+		m.context = "my-saas-platform"
 		// The workflow picker is the one that offers `e`, so the help line
 		// in the image matches what the command actually shows.
 		m.editable = true
@@ -93,9 +93,9 @@ func TestRenderShowcase(t *testing.T) {
 
 	all := []string{"ai", "auth", "backend", "frontend"}
 	show("repo checkboxes · all ticked, cursor row 2",
-		downMany(newPickManyModel("Repos covered by platform/payments", repos, all), 1).View())
+		downMany(newPickManyModel("Repos covered by my-saas-platform/payments", repos, all), 1).View())
 	show("two unticked",
-		downMany(newPickManyModel("Repos covered by platform/payments", repos, []string{"backend", "frontend"}), 2).View())
+		downMany(newPickManyModel("Repos covered by my-saas-platform/payments", repos, []string{"backend", "frontend"}), 2).View())
 
 	// The history carousel, mid-scrub: the version being considered is two
 	// back, so the diff against the live state is the interesting part.
@@ -103,14 +103,14 @@ func TestRenderShowcase(t *testing.T) {
 		{ID: 1, When: "3d ago", At: "Aug 24 09:12", Source: "import", Note: ".env.local"},
 		{ID: 2, When: "5h ago", At: "14:02", Source: "shared-sync", Note: "infra.env",
 			Changes: []Change{
-				{Key: "MONGO_URI", Mark: '~', From: "…@cluster/platform_local", To: "…@cluster/platform_scratch"},
+				{Key: "MONGO_URI", Mark: '~', From: "…@cluster/my_saas_local", To: "…@cluster/my_saas_scratch"},
 				{Key: "LOG_LEVEL", Mark: '+', From: "debug"},
 				{Key: "FEATURE_FLAGS", Mark: '-', To: "beta"},
 			}},
 		{ID: 3, When: "12m ago", At: "18:30", Source: "var", Note: "PORT"},
 		{ID: 4, When: "just now", At: "18:42:51", Source: "sync", Note: "sync auth", Current: true},
 	}
-	carousel := newHistoryModel("platform/auth · local", versions)
+	carousel := newHistoryModel("my-saas-platform/auth · local", versions)
 	show("history carousel · scrubbed back two", carousel.update(tea.KeyMsg{Type: tea.KeyRight}).View())
 
 	// One decision per row, cycled with ←→. The shared-value case is the one
@@ -119,7 +119,7 @@ func TestRenderShowcase(t *testing.T) {
 		{Key: "PORT", Detail: "4000 → 9999", Choices: []string{"apply to auth+local", "skip"}},
 		{
 			Key:     "MONGO_URI",
-			Detail:  "…/platform_local → …/platform_scratch",
+			Detail:  "…/my_saas_local → …/my_saas_scratch",
 			Note:    "comes from ${_PRIZM_MONGO_URI} in shared:infra",
 			Choices: []string{"update the shared value", "pin to auth only", "skip"},
 			// Only the first choice reaches other repos.
@@ -127,7 +127,7 @@ func TestRenderShowcase(t *testing.T) {
 		},
 		{Key: "DEBUG_TRACE", Detail: "added · on", Choices: []string{"add to auth+local", "skip"}},
 	}
-	resolve := newResolveModel("platform/auth ← .env", rows)
+	resolve := newResolveModel("my-saas-platform/auth ← .env", rows)
 	// Cursor on the shared-value row without cycling: the default choice is
 	// the one that carries a consequence, which is the thing worth seeing.
 	show("sync · one decision per row",

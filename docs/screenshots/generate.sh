@@ -62,61 +62,65 @@ run() { # run <name> -- <command...>
 echo "building the sandbox…"
 mkdir -p "$HOME/code"/{frontend,backend,auth,ai}
 
-"$prizm" init platform >/dev/null
+"$prizm" init my-saas-platform >/dev/null
 for r in frontend backend auth ai; do
-  "$prizm" add-repo platform "$HOME/code/$r" --name "$r" >/dev/null
+  "$prizm" add-repo my-saas-platform "$HOME/code/$r" --name "$r" >/dev/null
 done
 
-"$prizm" add-workflow platform local         --tag local --repos frontend,backend,auth,ai >/dev/null
-"$prizm" add-workflow platform frontend-only --tag qa    --repos frontend               >/dev/null
-"$prizm" add-workflow platform production    --tag prod  --repos frontend,backend,auth,ai >/dev/null
+# The same five the picker fixture shows, so `ls` and the picker do not
+# disagree about which workflows exist.
+"$prizm" add-workflow my-saas-platform local         --tag local --repos frontend,backend,auth,ai >/dev/null
+"$prizm" add-workflow my-saas-platform frontend-only --tag qa    --repos frontend                 >/dev/null
+"$prizm" add-workflow my-saas-platform payments      --tag debug --repos backend,frontend         >/dev/null
+"$prizm" add-workflow my-saas-platform staging       --tag qa    --repos frontend,backend,auth,ai >/dev/null
+"$prizm" add-workflow my-saas-platform production    --tag prod  --repos frontend,backend,auth,ai >/dev/null
 
 # Layer 0: true in every workflow.
-"$prizm" var platform --global _PRIZM_CLUSTER_USER=svc_app _PRIZM_CLUSTER_HOST=cluster.internal >/dev/null
+"$prizm" var my-saas-platform --global _PRIZM_CLUSTER_USER=svc_app _PRIZM_CLUSTER_HOST=cluster.internal >/dev/null
 
 # Layer 2: the values that differ per environment.
-mkdir -p "$XDG_DATA_HOME/prizm/shared/platform"/{local,production}
+mkdir -p "$XDG_DATA_HOME/prizm/shared/my-saas-platform"/{local,production}
 for wf in local production; do
-  "$prizm" shared-add platform "$wf" infra >/dev/null
+  "$prizm" shared-add my-saas-platform "$wf" infra >/dev/null
 done
-cat >"$XDG_DATA_HOME/prizm/shared/platform/local/infra.env" <<'ENV'
+cat >"$XDG_DATA_HOME/prizm/shared/my-saas-platform/local/infra.env" <<'ENV'
 # prizm:repos ai,auth,backend,frontend
-_PRIZM_DB_NAME=platform_local
+_PRIZM_DB_NAME=my_saas_local
 _PRIZM_MONGO_URI=mongodb://${_PRIZM_CLUSTER_USER}@${_PRIZM_CLUSTER_HOST}/${_PRIZM_DB_NAME}
 _PRIZM_AUTH_URL=http://localhost:4000
 ENV
-cat >"$XDG_DATA_HOME/prizm/shared/platform/production/infra.env" <<'ENV'
+cat >"$XDG_DATA_HOME/prizm/shared/my-saas-platform/production/infra.env" <<'ENV'
 # prizm:repos ai,auth,backend,frontend
-_PRIZM_DB_NAME=platform_prod
+_PRIZM_DB_NAME=my_saas_prod
 _PRIZM_MONGO_URI=mongodb://${_PRIZM_CLUSTER_USER}@${_PRIZM_CLUSTER_HOST}/${_PRIZM_DB_NAME}
-_PRIZM_AUTH_URL=https://auth.platform.invalid
+_PRIZM_AUTH_URL=https://auth.my-saas-platform.invalid
 ENV
-"$prizm" shared-sync platform --yes >/dev/null
+"$prizm" shared-sync my-saas-platform --yes >/dev/null
 
 # Layer 1: the wiring, written once per repo.
-"$prizm" var platform auth     'MONGO_URI=${_PRIZM_MONGO_URI}' PORT=4000 >/dev/null
-"$prizm" var platform backend  'MONGO_URI=${_PRIZM_MONGO_URI}' 'AUTH_URL=${_PRIZM_AUTH_URL}' PORT=4001 >/dev/null
-"$prizm" var platform frontend 'NEXT_PUBLIC_AUTH_URL=${_PRIZM_AUTH_URL}' PORT=3000 >/dev/null
-"$prizm" var platform ai       'MONGO_URI=${_PRIZM_MONGO_URI}' 'AUTH_URL=${_PRIZM_AUTH_URL}' PORT=4003 >/dev/null
+"$prizm" var my-saas-platform auth     'MONGO_URI=${_PRIZM_MONGO_URI}' PORT=4000 >/dev/null
+"$prizm" var my-saas-platform backend  'MONGO_URI=${_PRIZM_MONGO_URI}' 'AUTH_URL=${_PRIZM_AUTH_URL}' PORT=4001 >/dev/null
+"$prizm" var my-saas-platform frontend 'NEXT_PUBLIC_AUTH_URL=${_PRIZM_AUTH_URL}' PORT=3000 >/dev/null
+"$prizm" var my-saas-platform ai       'MONGO_URI=${_PRIZM_MONGO_URI}' 'AUTH_URL=${_PRIZM_AUTH_URL}' PORT=4003 >/dev/null
 
 echo "rendering…"
 
-run ls        -- "$prizm" ls platform
-run dry-run   -- "$prizm" up platform local --dry-run
+run ls        -- "$prizm" ls my-saas-platform
+run dry-run   -- "$prizm" up my-saas-platform local --dry-run
 
-"$prizm" up platform local >/dev/null
+"$prizm" up my-saas-platform local >/dev/null
 
 # A hand-edit, so sync has something real to reconcile.
 env_file="$(readlink "$HOME/code/auth/.env")"
 sed -i 's/PORT=4000/PORT=9999/' "$env_file"
 printf 'DEBUG_TRACE=on\n' >>"$env_file"
-run sync      -- "$prizm" sync platform auth --yes
+run sync      -- "$prizm" sync my-saas-platform auth --yes
 
 # Leave one repo drifted, because a listing where everything is clean does
 # not show what status is for.
 sed -i 's/PORT=4001/PORT=4444/' "$(readlink "$HOME/code/backend/.env")"
-run status    -- "$prizm" status platform
-run audit     -- "$prizm" audit platform auth
+run status    -- "$prizm" status my-saas-platform
+run audit     -- "$prizm" audit my-saas-platform auth
 
 # The interactive surfaces render without a terminal, which is exactly why
 # their update/View methods are kept pure.
