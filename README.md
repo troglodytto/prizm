@@ -22,7 +22,19 @@ One command sets all four up, each with its own env file, built from its own lay
 
 ![prizm ls my-saas-platform](docs/screenshots/ls.png)
 
-> **v0.5.0.** In daily use. Groups, repos and workflows; four layers of variables with interpolation; `status`, `sync`, `audit` with restore, `$EDITOR` editing, dry runs, an interactive picker, compose services, and directory-aware completion for all of it.
+> **v0.6.2.** In daily use. Groups, repos and workflows; four layers of variables with interpolation; `status`, `sync`, `audit` with restore, `$EDITOR` editing, dry runs, an interactive picker, compose services, and directory-aware completion for all of it.
+
+## Contents
+
+- [The problem](#the-problem) — why this exists
+- [Installation](#installation) — one curl command, or `go install`
+- [Getting started](#getting-started) — working setup in six lines
+- [How it works](#how-it-works) — groups, workflows, and the four layers
+- [Sharing values across repos](#sharing-values-across-repos) — one edit, every consumer
+- [Usage](#usage) — status, dry runs, sync, history, the picker
+- [Docker services](#docker-services) — bring a stack up with a workflow
+- [Shell completion](#shell-completion)
+- [Design notes](#design-notes) · [Where your data lives](#where-your-data-lives) · [Verifying a download](docs/verifying.md)
 
 ## The problem
 
@@ -30,7 +42,7 @@ You have a project spread across several repos. Running it locally means a `.env
 
 Copying files around doesn't fix it, because the *sets* differ. Working on the frontend against a deployed backend needs one repo configured. Running the full stack needs four. Debugging payments needs two. These aren't environments — they're workflows, and each one is a different bundle of repos.
 
-## Install
+## Installation
 
 No Go toolchain needed — this fetches a prebuilt binary into `~/.local/bin`:
 
@@ -80,7 +92,7 @@ Values are encrypted with a key from your OS keychain. The keychain is only
 consulted when a command actually reads or writes a value — `--version`,
 `--help`, `init` and `ls` work on a headless box with no keychain at all.
 
-## Quickstart
+## Getting started
 
 Point prizm at two repos, describe one workflow, apply it:
 
@@ -110,7 +122,7 @@ Already have `.env` files worth keeping? Import instead of retyping:
 prizm import my-saas-platform backend ~/code/backend/.env.local
 ```
 
-## The model
+## How it works
 
 A **group** owns **repos** — each pinned to a fixed path — and **workflows**. A workflow is a named bundle: an explicit subset of repos plus their variables.
 
@@ -143,7 +155,7 @@ Variables merge in four layers, most specific winning: **group-global** (true ev
 
 The split is what makes switching cheap. The wiring — `MONGO_URI=${_PRIZM_MONGO_URI}` — is written once per repo. Only the bag changes per environment, so the same line resolves to a different database in each.
 
-## Derived shared values
+## Sharing values across repos
 
 Shared bags are what stop the same database URL living in four places. They hold the *recipe*, not the result — so values can be built from other values, and editing one input updates every consumer at once:
 
@@ -173,7 +185,7 @@ DB_URL=postgres://svc_app:hunter2@localhost:5432/app
 
 Keys prefixed `_PRIZM_` are internal — referenceable from any template, never written to a file. Rotating the password is one edit in one place.
 
-## Day to day
+## Usage
 
 **Where does everything stand?**
 
@@ -233,7 +245,7 @@ prizm my-saas-platform
 
 `/` filters, `⏎` applies, and `e` opens that repo's layer in `$EDITOR` instead — the same path `prizm edit` takes.
 
-## Services
+## Docker services
 
 A workflow can carry a compose stack, brought up after the env files are written:
 
