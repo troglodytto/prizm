@@ -35,6 +35,7 @@ func NewRootCmd(app *App) *cobra.Command {
 		Short: "Share env files across repos, grouped by workflow",
 		Long: "prizm applies a named workflow's environment to every repo it covers,\n" +
 			"building each repo's env file from shared and per-repo variables.",
+		Version:      Version(),
 		SilenceUsage: true,
 		Args:         cobra.ArbitraryArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
