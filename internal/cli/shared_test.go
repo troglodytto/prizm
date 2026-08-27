@@ -221,3 +221,53 @@ func TestSharedBagFeedsUpEndToEnd(t *testing.T) {
 		}
 	}
 }
+
+func TestSharedAddKeepsAFileThatIsAlreadyThere(t *testing.T) {
+	h := newHarness(t)
+	h.run(t, "init", "k")
+	h.run(t, "add-repo", "k", "auth", "--path", h.repoDir(t, "auth"))
+	h.run(t, "add-workflow", "k", "local", "--repos", "auth")
+
+	// Someone wrote the bag file first — by hand, or from a script moments
+	// earlier. Creating the bag must not be what destroys it.
+	path := filepath.Join(t.TempDir(), "infra.env")
+	const content = "# prizm:repos auth\n_PRIZM_DB=postgres://real/data\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("writing bag file: %v", err)
+	}
+
+	if err := h.run(t, "shared-add", "k", "local", "infra", "--repos", "auth", "--file", path); err != nil {
+		t.Fatalf("shared-add: %v", err)
+	}
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading back: %v", err)
+	}
+	if string(got) != content {
+		t.Errorf("file = %q, want it untouched (%q)", got, content)
+	}
+	if !strings.Contains(h.out.String(), "kept the file") {
+		t.Errorf("output = %q, want it to say the file was kept", h.out.String())
+	}
+}
+
+func TestSharedAddStillWritesATemplateWhenThereIsNoFile(t *testing.T) {
+	h := newHarness(t)
+	h.run(t, "init", "k")
+	h.run(t, "add-repo", "k", "auth", "--path", h.repoDir(t, "auth"))
+	h.run(t, "add-workflow", "k", "local", "--repos", "auth")
+
+	path := filepath.Join(t.TempDir(), "infra.env")
+	if err := h.run(t, "shared-add", "k", "local", "infra", "--repos", "auth", "--file", path); err != nil {
+		t.Fatalf("shared-add: %v", err)
+	}
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("expected a template to be created: %v", err)
+	}
+	if !strings.Contains(string(got), "prizm:repos") {
+		t.Errorf("template = %q, want the repos header", got)
+	}
+}

@@ -62,13 +62,28 @@ func newSharedAddCmd(app *App) *cobra.Command {
 			if err := app.Store.ReplaceSharedGroupRepos(sg.ID, repoIDs); err != nil {
 				return err
 			}
-			if err := writeBagFile(app, sg.ID, path); err != nil {
+			// A file already at this path is someone's work — very often a
+			// bag written by hand or by a script moments earlier. Creating
+			// the bag must not be what destroys it: a fresh template is the
+			// convenience, and convenience never outranks existing content.
+			existed, err := fileHasContent(path)
+			if err != nil {
 				return err
+			}
+			if !existed {
+				if err := writeBagFile(app, sg.ID, path); err != nil {
+					return err
+				}
 			}
 
 			app.result(style.OK, name, fmt.Sprintf("shared bag in %s/%s", g.Name, wf.Name))
-			app.detail("  edit: %s", path)
-			app.hint("  then: prizm shared-sync")
+			if existed {
+				app.detail("  kept the file already at %s", path)
+				app.hint("  load it: prizm shared-sync")
+			} else {
+				app.detail("  edit: %s", path)
+				app.hint("  then: prizm shared-sync")
+			}
 			return nil
 		},
 	}
@@ -418,6 +433,19 @@ func bagPath(app *App, group, workflow, name, override string) (string, error) {
 }
 
 // writeBagFile materialises a bag's current contents as editable text.
+// fileHasContent reports whether path already holds something worth keeping.
+// An empty file counts as absent — it carries nothing a template would erase.
+func fileHasContent(path string) (bool, error) {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return info.Size() > 0, nil
+}
+
 func writeBagFile(app *App, bagID int64, path string) error {
 	if err := config.EnsureDir(filepath.Dir(path)); err != nil {
 		return err
