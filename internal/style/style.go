@@ -11,6 +11,7 @@
 package style
 
 import (
+	"hash/fnv"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -23,6 +24,8 @@ var (
 	Red    = lipgloss.Color("1")
 	Green  = lipgloss.Color("2")
 	Yellow = lipgloss.Color("3")
+	Blue   = lipgloss.Color("4")
+	Purple = lipgloss.Color("5")
 	Cyan   = lipgloss.Color("6")
 	Base   = lipgloss.Color("0") // for text on an inverted badge
 )
@@ -184,19 +187,46 @@ func Hint(s string) string { return hintStyle.Render(s) }
 // Alert is for text that should stop someone.
 func Alert(s string) string { return alertStyle.Render(s) }
 
-// tagColors maps a workflow tag to the colour of its badge.
+// tagColors fixes the three tags that carry meaning. Red is production
+// everywhere in prizm, and that association is worth more than variety.
 var tagColors = map[string]lipgloss.TerminalColor{
-	"prod":  Red,
-	"qa":    Yellow,
-	"local": Cyan,
+	"prod":       Red,
+	"production": Red,
+	"qa":         Yellow,
+	"staging":    Yellow,
+	"staging":    Yellow,
+	"local":      Cyan,
+	"dev":        Cyan,
 }
 
-// TagColor returns a tag's colour, or nil for an unknown or empty tag.
+// spareTagColors are for tags prizm has no opinion about. Red, yellow and
+// cyan are deliberately absent: a custom tag must never be mistaken for a
+// production one at a glance.
+var spareTagColors = []lipgloss.TerminalColor{
+	Green,
+	Purple,
+	Blue,
+	lipgloss.Color("10"), // bright green
+	lipgloss.Color("13"), // bright magenta
+	lipgloss.Color("12"), // bright blue
+}
+
+// TagColor returns a tag's colour, or nil for an empty tag.
+//
+// Known tags keep their semantic colour. Anything else is hashed to a spare
+// one — stable across runs and machines, so a tag you invent looks the same
+// every time you see it, and two different tags almost never collide.
 func TagColor(tag string) lipgloss.TerminalColor {
+	if tag == "" {
+		return nil
+	}
 	if c, ok := tagColors[tag]; ok {
 		return c
 	}
-	return nil
+
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(tag))
+	return spareTagColors[h.Sum32()%uint32(len(spareTagColors))]
 }
 
 // Tag renders a workflow tag as an inverted badge.
@@ -210,11 +240,7 @@ func Tag(tag string) string {
 		return ""
 	}
 
-	c := TagColor(tag)
-	if c == nil {
-		return detailStyle.Render(tag)
-	}
-	return lipgloss.NewStyle().Bold(true).Foreground(Base).Background(c).Render(" " + tag + " ")
+	return lipgloss.NewStyle().Bold(true).Foreground(Base).Background(TagColor(tag)).Render(" " + tag + " ")
 }
 
 // CommandName renders a command or usage line: bold, uncoloured, because it

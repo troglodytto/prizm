@@ -102,8 +102,61 @@ func TestTagColoursAreSemanticAndDistinct(t *testing.T) {
 	if prod == qa || qa == local || prod == local {
 		t.Error("tag colours collide; prod must never look like local")
 	}
-	if TagColor("something-custom") != nil {
-		t.Error("an unknown tag should have no colour of its own")
+	if TagColor("") != nil {
+		t.Error("an empty tag should have no colour")
+	}
+}
+
+// A tag prizm has no opinion about still gets a colour, so two custom tags
+// are told apart at a glance.
+func TestUnknownTagsGetTheirOwnColour(t *testing.T) {
+	for _, tag := range []string{"demo", "perf", "sandbox", "canary"} {
+		if TagColor(tag) == nil {
+			t.Errorf("TagColor(%q) = nil, want a colour", tag)
+		}
+	}
+}
+
+// The same tag must look the same every time — across runs and machines.
+func TestUnknownTagColoursAreStable(t *testing.T) {
+	first := TagColor("canary")
+	for i := 0; i < 50; i++ {
+		if TagColor("canary") != first {
+			t.Fatal("TagColor is not stable for the same input")
+		}
+	}
+}
+
+// A custom tag must never be mistaken for production at a glance.
+func TestUnknownTagsNeverReuseTheSemanticColours(t *testing.T) {
+	reserved := map[lipgloss.TerminalColor]string{Red: "prod", Yellow: "qa", Cyan: "local"}
+
+	for _, tag := range []string{"demo", "perf", "sandbox", "canary", "e2e", "load", "blue", "green"} {
+		if which, clash := reserved[TagColor(tag)]; clash {
+			t.Errorf("TagColor(%q) reuses the %s colour", tag, which)
+		}
+	}
+}
+
+func TestCommonAliasesShareTheirMeaning(t *testing.T) {
+	if TagColor("production") != TagColor("prod") {
+		t.Error("production and prod should look the same")
+	}
+	if TagColor("staging") != TagColor("qa") {
+		t.Error("staging and qa should look the same")
+	}
+}
+
+// Spread matters more than perfection: a handful of tags should not all
+// collapse onto one colour.
+func TestUnknownTagsSpreadAcrossThePalette(t *testing.T) {
+	seen := map[lipgloss.TerminalColor]bool{}
+	for _, tag := range []string{"demo", "perf", "sandbox", "canary", "e2e", "load"} {
+		seen[TagColor(tag)] = true
+	}
+
+	if len(seen) < 3 {
+		t.Errorf("six tags produced only %d distinct colours", len(seen))
 	}
 }
 
