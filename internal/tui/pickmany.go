@@ -151,15 +151,10 @@ func (m pickManyModel) View() string {
 		dimStyle.Render(fmt.Sprintf(" of %d selected", len(m.options)))
 	b.WriteString("\n  " + title(m.title, "") + "\n  " + count + "\n\n")
 
-	labelWidth, rowWidth := 0, 0
+	labelWidth := 0
 	for _, o := range m.options {
 		if n := lipgloss.Width(o.Label); n > labelWidth {
 			labelWidth = n
-		}
-	}
-	for _, o := range m.options {
-		if w := labelWidth + 3 + lipgloss.Width(o.Desc); w > rowWidth {
-			rowWidth = w
 		}
 	}
 
@@ -172,23 +167,16 @@ func (m pickManyModel) View() string {
 			marker = barStyle.Render(bar)
 		}
 
-		boxStyle := uncheckedStyle
-		glyph := unchecked
+		box := uncheckedStyle.Render(unchecked)
 		if m.selected[o.Value] {
-			boxStyle, glyph = checkedStyle, checked
-		}
-		if selected {
-			boxStyle = boxStyle.Background(selectionBG)
+			box = checkedStyle.Render(checked)
 		}
 
-		content := boxStyle.Render(glyph) + descStyle.Render("  ")
-		content += labelStyle.Render(o.Label) + padLabel(o.Label, labelWidth, selected)
-		content += descStyle.Render("   " + o.Desc)
-
-		plain := o.Label + strings.Repeat(" ", labelWidth-lipgloss.Width(o.Label)) + "   " + o.Desc
-		content += padTo(plain, rowWidth, selected)
-
-		b.WriteString("  " + marker + content + "\n")
+		row := "  " + marker + box + "  " + labelStyle.Render(o.Label) + padLabel(o.Label, labelWidth)
+		if o.Desc != "" {
+			row += "   " + descStyle.Render(o.Desc)
+		}
+		b.WriteString(row + "\n")
 	}
 
 	b.WriteString("\n  " + help("↑↓", "move", "space", "toggle", "a", "all", "⏎", "confirm", "esc", "cancel"))

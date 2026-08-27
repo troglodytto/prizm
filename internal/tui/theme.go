@@ -28,61 +28,36 @@ var (
 	filterStyle    = lipgloss.NewStyle().Foreground(style.Yellow)
 )
 
-// selectionBG is the row highlight. Every segment of a selected row sets it
-// explicitly: a nested style that resets colour would punch a hole in the
-// band, so the background cannot be applied once around the outside.
-var selectionBG = lipgloss.Color("8")
-
-// rowStyles returns the styles for one row, background-aware so a highlighted
-// row stays a continuous band.
+// Selection is shown by lifting the row's own text — brighter and bold —
+// rather than painting a band behind it. A background block competes with
+// the tag colours for attention and looks like a spreadsheet; weight and
+// hue on the text itself reads as emphasis.
+//
+// Tags are exempt: their colour carries meaning, so it never changes with
+// the cursor.
 func rowStyles(selected bool) (label, desc lipgloss.Style) {
-	if !selected {
-		return itemStyle, dimStyle
+	if selected {
+		return lipgloss.NewStyle().Bold(true).Foreground(style.Cyan),
+			lipgloss.NewStyle()
 	}
-	return lipgloss.NewStyle().Bold(true).Background(selectionBG),
-		lipgloss.NewStyle().Faint(true).Background(selectionBG)
+	return itemStyle, dimStyle
 }
 
-// tagOn renders a tag inside a row, carrying the row's background so the
-// highlight is not broken by it.
-func tagOn(tag string, selected bool) string {
+// tagStyle renders a tag. It looks the same selected or not — the colour is
+// information, not decoration.
+func tagStyle(tag string) string {
 	if tag == "" {
 		return ""
 	}
-
-	s := lipgloss.NewStyle().Bold(true).Foreground(style.TagColor(tag))
-	if selected {
-		s = s.Background(selectionBG)
-	}
-	return s.Render("(" + tag + ")")
+	return lipgloss.NewStyle().Bold(true).Foreground(style.TagColor(tag)).Render("(" + tag + ")")
 }
 
-// padTo fills to width so a highlighted row is a rectangle. Unselected rows
-// get nothing — padding them only leaves trailing whitespace behind.
-func padTo(s string, width int, selected bool) string {
-	if !selected {
-		return ""
+// padLabel aligns the label column.
+func padLabel(s string, width int) string {
+	if fill := width - lipgloss.Width(s); fill > 0 {
+		return strings.Repeat(" ", fill)
 	}
-
-	fill := width - lipgloss.Width(s)
-	if fill <= 0 {
-		return ""
-	}
-	return lipgloss.NewStyle().Background(selectionBG).Render(strings.Repeat(" ", fill))
-}
-
-// padLabel aligns the label column on every row, highlighted or not.
-func padLabel(s string, width int, selected bool) string {
-	fill := width - lipgloss.Width(s)
-	if fill <= 0 {
-		return ""
-	}
-
-	spaces := strings.Repeat(" ", fill)
-	if selected {
-		return lipgloss.NewStyle().Background(selectionBG).Render(spaces)
-	}
-	return spaces
+	return ""
 }
 
 // bar marks the row under the cursor.
