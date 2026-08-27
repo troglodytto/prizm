@@ -26,6 +26,7 @@ var (
 	keyStyle       = lipgloss.NewStyle().Bold(true)
 	helpStyle      = lipgloss.NewStyle().Faint(true)
 	filterStyle    = lipgloss.NewStyle().Foreground(style.Yellow)
+	warnStyle      = lipgloss.NewStyle().Foreground(style.Yellow)
 )
 
 // Selection is shown by lifting the row's own text — brighter and bold —

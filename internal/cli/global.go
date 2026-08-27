@@ -142,3 +142,36 @@ func filepathDir(p string) string {
 	}
 	return "."
 }
+
+// rewriteGlobalFile re-materialises a group's global file after prizm changes
+// one of its values, so the file and the database do not disagree.
+func rewriteGlobalFile(app *App, groupID int64) error {
+	groups, err := app.Store.ListGroups()
+	if err != nil {
+		return err
+	}
+
+	for _, g := range groups {
+		if g.ID != groupID {
+			continue
+		}
+
+		path, err := config.GlobalPath(g.Name)
+		if err != nil {
+			return err
+		}
+		if _, statErr := os.Stat(path); statErr != nil {
+			return nil // no file to keep in step
+		}
+
+		vars, err := app.Store.GroupVars(g.ID)
+		if err != nil {
+			return err
+		}
+
+		header := "# Shared across every workflow in " + g.Name + ".\n" +
+			"# Values here are defaults: any workflow or repo can override one.\n\n"
+		return os.WriteFile(path, []byte(header+sharedfile.Render(nil, vars)), 0o600)
+	}
+	return nil
+}

@@ -19,10 +19,28 @@ const InternalPrefix = "_PRIZM_"
 // IsInternal reports whether key is prizm-internal.
 func IsInternal(key string) bool { return strings.HasPrefix(key, InternalPrefix) }
 
-// Layer is one contributor to a repo's variables. Name appears in errors.
+// LayerKind identifies which of the four variable layers this is.
+type LayerKind int
+
+const (
+	// LayerGroup is true of the whole group, in every workflow.
+	LayerGroup LayerKind = iota
+	// LayerRepoShared applies in every workflow that touches the repo.
+	LayerRepoShared
+	// LayerSharedGroup is a named bag scoped to (workflow, repo subset).
+	LayerSharedGroup
+	// LayerWorkflowRepo is one repo inside one workflow. Highest precedence.
+	LayerWorkflowRepo
+)
+
+// Layer is one contributor to a repo's variables. Name appears in errors and
+// in sync's explanations; SharedGroupID is set only for LayerSharedGroup.
 type Layer struct {
-	Name string
-	Vars map[string]string
+	Name          string
+	Kind          LayerKind
+	SharedGroupID int64
+	GroupID       int64
+	Vars          map[string]string
 }
 
 // Merge folds layers low-precedence first; later layers win.

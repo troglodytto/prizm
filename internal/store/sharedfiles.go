@@ -1,6 +1,11 @@
 package store
 
-import "time"
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
+)
 
 // SharedGroupRef is a shared bag with the names needed to address it.
 type SharedGroupRef struct {
@@ -122,4 +127,20 @@ func (s *Store) ReplaceSharedGroupRepos(id int64, repoIDs []int64) error {
 		}
 	}
 	return tx.Commit()
+}
+
+// SharedGroupByID looks a bag up by its primary key.
+func (s *Store) SharedGroupByID(id int64) (SharedGroup, error) {
+	var sg SharedGroup
+	err := s.db.QueryRow(
+		`SELECT id, workflow_id, name, file_path FROM shared_groups WHERE id = ?`, id,
+	).Scan(&sg.ID, &sg.WorkflowID, &sg.Name, &sg.FilePath)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return SharedGroup{}, fmt.Errorf("shared group %d: %w", id, ErrNotFound)
+	}
+	if err != nil {
+		return SharedGroup{}, err
+	}
+	return sg, nil
 }

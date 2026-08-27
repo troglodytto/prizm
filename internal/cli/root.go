@@ -34,6 +34,7 @@ type App struct {
 	// be settable from a flag or the environment.
 	PickOne  func(heading, context string, options []tui.Option) (string, error)
 	PickMany func(title string, options []tui.Option, preselected []string) ([]string, error)
+	Resolve  func(title string, rows []tui.ResolveRow) ([]int, error)
 
 	pickerInjected bool
 }
@@ -105,6 +106,7 @@ func commandsOf(app *App) []*cobra.Command {
 		newImportCmd(app),
 		newUpCmd(app),
 		newStatusCmd(app),
+		newSyncCmd(app),
 		newRepairCmd(app),
 		newRenameCmd(app),
 		newRemoveCmd(app),
@@ -147,6 +149,7 @@ func Execute() int {
 	app.Confirm = confirmOnStdin(app.Out)
 	app.PickOne = tui.PickOne
 	app.PickMany = tui.PickMany
+	app.Resolve = tui.Resolve
 
 	root := NewRootCmd(app)
 	root.SetArgs(rewriteArgs(app, root, os.Args[1:]))
