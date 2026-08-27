@@ -51,7 +51,7 @@ func (h *harness) run(t *testing.T, args ...string) error {
 	cmd.SetOut(h.out)
 	cmd.SetErr(h.err)
 	cmd.SetArgs(args)
-	return cmd.Execute()
+	return Run(cmd)
 }
 
 // repoDir makes a real directory for a repo to be linked into.

@@ -3,6 +3,7 @@ package cli
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -35,9 +36,11 @@ func NewRootCmd(app *App) *cobra.Command {
 		Short: "Share env files across repos, grouped by workflow",
 		Long: "prizm applies a named workflow's environment to every repo it covers,\n" +
 			"building each repo's env file from shared and per-repo variables.",
-		Version:      Version(),
-		SilenceUsage: true,
-		Args:         cobra.ArbitraryArgs,
+		Version: Version(),
+		// Errors print themselves; Run decides whether help follows.
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		Args:          cobra.ArbitraryArgs,
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			if len(args) > 0 {
 				return nil, cobra.ShellCompDirectiveNoFileComp
@@ -45,12 +48,20 @@ func NewRootCmd(app *App) *cobra.Command {
 			return app.completeRoot(cmd, toComplete)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return errUsage("unknown command or group %q", args[0])
+			}
 			return cmd.Help()
 		},
 	}
 
 	root.SetOut(app.Out)
 	root.SetErr(app.Err)
+
+	// A wrong flag is a usage problem, so it should show help too.
+	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
+		return usageError{err: err}
+	})
 
 	root.AddCommand(
 		newInitCmd(app),
@@ -100,7 +111,11 @@ func Execute() int {
 	root := NewRootCmd(app)
 	root.SetArgs(rewriteArgs(app, root, os.Args[1:]))
 
-	if err := root.Execute(); err != nil {
+	if err := Run(root); err != nil {
+		var shown errShown
+		if !errors.As(err, &shown) {
+			fmt.Fprintln(os.Stderr, "Error:", err)
+		}
 		return 1
 	}
 	return 0

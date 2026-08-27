@@ -24,7 +24,7 @@ func newVarCmd(app *App) *cobra.Command {
 			"Values are stored verbatim: ${OTHER_VAR} references are expanded at `up`\n" +
 			"time, not here. Keys starting with _PRIZM_ are internal — usable in\n" +
 			"templates, never written to the repo's env file.",
-		Args: cobra.MinimumNArgs(1),
+		Args: usageArgs(cobra.MinimumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			g, repo, assignments, err := app.splitGroupRepo(args, countAssignments(args))
 			if err != nil {
@@ -64,7 +64,7 @@ func newImportCmd(app *App) *cobra.Command {
 		Short: "Load an existing .env file into prizm",
 		Long: "Most people already have .env.local files sitting in each repo; this is\n" +
 			"how prizm gets populated the first time.",
-		Args: cobra.RangeArgs(1, 3),
+		Args: usageArgs(cobra.RangeArgs(1, 3)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			g, repo, rest, err := app.splitGroupRepo(args, 1)
 			if err != nil {

@@ -12,7 +12,7 @@ func newInitCmd(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "init <group>",
 		Short: "Create a new group",
-		Args:  cobra.ExactArgs(1),
+		Args:  usageArgs(cobra.ExactArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			g, err := app.Store.CreateGroup(args[0])
 			if err != nil {
@@ -29,7 +29,7 @@ func newLsCmd(app *App) *cobra.Command {
 		Use:     "ls [group]",
 		Short:   "List groups, or one group's repos and workflows",
 		Aliases: []string{"list"},
-		Args:    cobra.MaximumNArgs(1),
+		Args:    usageArgs(cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return listGroups(app)

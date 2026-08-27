@@ -18,7 +18,7 @@ func newAddRepoCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add-repo <group> <repo>",
 		Short: "Register a repo in a group (defaults to the current directory)",
-		Args:  cobra.ExactArgs(2),
+		Args:  usageArgs(cobra.ExactArgs(2)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			g, err := app.mustGroup(args[0])
 			if err != nil {

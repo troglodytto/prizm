@@ -26,7 +26,7 @@ func newSharedAddCmd(app *App) *cobra.Command {
 		Short: "Create a file-backed shared variable bag",
 		Long: "The bag is backed by a real .env file you edit directly. Run\n" +
 			"`prizm shared-sync` afterwards to reconcile your edits into prizm.",
-		Args: cobra.RangeArgs(2, 3),
+		Args: usageArgs(cobra.RangeArgs(2, 3)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			g, rest, err := app.splitGroup(args, 2)
 			if err != nil {
@@ -80,7 +80,7 @@ func newSharedEditCmd(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "shared-edit [group] <workflow> <name>",
 		Short: "Open a shared bag's file in $EDITOR",
-		Args:  cobra.RangeArgs(2, 3),
+		Args:  usageArgs(cobra.RangeArgs(2, 3)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, _, sg, err := resolveBag(app, args)
 			if err != nil {
@@ -108,7 +108,7 @@ func newSharedLsCmd(app *App) *cobra.Command {
 	return &cobra.Command{
 		Use:   "shared-ls [group]",
 		Short: "List shared bags and the files backing them",
-		Args:  cobra.MaximumNArgs(1),
+		Args:  usageArgs(cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			bags, err := app.Store.AllSharedGroups()
 			if err != nil {
@@ -161,7 +161,7 @@ func newSharedSyncCmd(app *App) *cobra.Command {
 		Short: "Reconcile shared bag files into prizm",
 		Long: "The file is the source of truth: a key removed from it is removed from\n" +
 			"the bag. Nothing is written without confirmation.",
-		Args: cobra.MaximumNArgs(3),
+		Args: usageArgs(cobra.MaximumNArgs(3)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			bags, err := selectBags(app, args)
 			if err != nil {

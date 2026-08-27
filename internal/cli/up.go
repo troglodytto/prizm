@@ -23,7 +23,7 @@ func newUpCmd(app *App) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "up [group] <workflow>",
 		Short: "Apply a workflow: build and link every covered repo's env file",
-		Args:  cobra.RangeArgs(1, 2),
+		Args:  usageArgs(cobra.RangeArgs(1, 2)),
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 			return app.completeGroupThenWorkflow(args, toComplete)
 		},

@@ -21,7 +21,7 @@ func newAddWorkflowCmd(app *App) *cobra.Command {
 		Short: "Define a workflow: a named bundle of repos",
 		Long: "Without --repos the workflow covers every repo currently in the group.\n" +
 			"Pass --repos to cover an explicit subset, e.g. a frontend-only workflow.",
-		Args: cobra.ExactArgs(2),
+		Args: usageArgs(cobra.ExactArgs(2)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			g, err := app.mustGroup(args[0])
 			if err != nil {

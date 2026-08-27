@@ -85,10 +85,9 @@ func (a *App) locate() (store.Repo, store.Group, error) {
 
 	repo, g, err := a.Store.RepoForPath(cwd)
 	if err != nil {
-		return store.Repo{}, store.Group{}, fmt.Errorf(
+		return store.Repo{}, store.Group{}, errUsage(
 			"not inside a registered repo, so prizm cannot tell which group you mean — "+
-				"name it explicitly (for example `prizm up <group> <workflow>`), "+
-				"or cd into one of the group's repos (cwd: %s)", cwd)
+				"name it explicitly, or cd into one of the group's repos (cwd: %s)", cwd)
 	}
 	return repo, g, nil
 }
