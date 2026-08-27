@@ -8,3 +8,18 @@
 
 # Local notes, not for the repo
 /.notes/
+
+# Never commit what this tool exists to manage. A stray `prizm import` or a
+# test run in the wrong directory drops exactly these into the tree, and the
+# whole point of the project is that they hold secrets.
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite
+*.sqlite3
+
+# Editor and OS noise
+.DS_Store
+*.swp
+*~

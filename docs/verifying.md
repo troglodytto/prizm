@@ -1,8 +1,12 @@
 # Verifying a download
 
-Every release carries a `checksums.txt` and a detached GPG signature over it.
-One signature covers the whole release: change any archive and its hash stops
-matching, change the list of hashes and the signature breaks.
+Every release carries a `checksums.txt`. Releases are **also** signed once the
+maintainer's key is configured in CI — one signature covers the whole release,
+since every archive's hash is in that file.
+
+> **Not yet signed.** No release published so far carries `checksums.txt.asc`;
+> the signing key is not yet in CI. Until it is, `checksums.txt` is what you
+> can verify, and `PRIZM_REQUIRE_SIG=1` will correctly refuse to install.
 
 `install.sh` checks both for you. This page is for doing it by hand, or for
 understanding what the installer is doing on your behalf.
@@ -33,7 +37,7 @@ If it cannot check the signature it says so and continues on the checksum
 alone:
 
 ```
-note: signature not checked — the signing key is not in your keyring
+note: signature not checked — no release signing key is in your keyring
 ```
 
 To make a signature mandatory — the right choice for anything automated:
@@ -53,7 +57,7 @@ arbitrary key proves only that somebody signed something.
 
 | Fingerprint | Signed |
 | --- | --- |
-| `49B66FF00161FF5AF6587CB59083374841288B9D` | v0.5.0 onward |
+| `49B66FF00161FF5AF6587CB59083374841288B9D` | future signed releases |
 
 Signing keys get rotated. A release stays signed by whichever key was current
 when it was published, so old fingerprints stay on the list and older versions

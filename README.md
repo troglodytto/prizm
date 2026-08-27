@@ -111,8 +111,9 @@ neither.
 | **Windows** | not yet — the apply lock uses `flock`. [Open an issue](https://github.com/troglodytto/prizm/issues) if you want it |
 
 Builds are attached to each [GitHub release](https://github.com/troglodytto/prizm/releases)
-with checksums and a GPG signature; the installer verifies them, and
-[docs/verifying.md](docs/verifying.md) covers doing it by hand.
+with checksums, which the installer verifies. GPG signing is wired up but not
+yet enabled — [docs/verifying.md](docs/verifying.md) covers checking a download
+by hand.
 
 Values are encrypted with a key from your OS keychain. The keychain is only
 consulted when a command actually reads or writes a value — `--version`,
@@ -293,7 +294,7 @@ A few decisions worth knowing before you rely on it:
 - **Drift is reported, never auto-resolved.** Applying a workflow stays fast and predictable; reconciliation only happens when you ask for it.
 - **Everything scriptable.** Every interactive prompt has a flag equivalent, so prizm works the same in a shell alias or CI with no terminal attached.
 - **Ambiguity is refused, not guessed.** A command that could mean two repos, two layers, or two workflows stops and says which — quietly acting on the first one is how a destructive command becomes a surprise.
-- **Applies are exclusive.** Two `up` runs cannot interleave writes across the same repos; the second fails immediately rather than waiting.
+- **Applies are exclusive.** A single lock covers the whole installation, so two `up` runs cannot interleave; the second fails immediately rather than waiting.
 
 ## Where your data lives
 

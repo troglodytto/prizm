@@ -51,8 +51,9 @@ SIGNING_KEYS="
 "
 
 tmp=""
-cleanup() { [ -n "${tmp}" ] && rm -rf "${tmp}"; }
-trap cleanup EXIT INT TERM
+cleanup() { [ -n "${tmp}" ] && rm -rf "${tmp}"; return 0; }
+trap cleanup EXIT
+trap 'cleanup; exit 130' INT TERM
 
 die() { printf '\nerror: %s\n' "$1" >&2; exit 1; }
 say() { printf '%s\n' "$1"; }
@@ -141,8 +142,10 @@ verify_signature() {
 		return
 	fi
 
-	status="$(gpg --status-fd 1 --verify \
-		"${tmp}/checksums.txt.asc" "${tmp}/checksums.txt" 2>/dev/null)"
+	if ! status="$(gpg --status-fd 1 --verify \
+		"${tmp}/checksums.txt.asc" "${tmp}/checksums.txt" 2>/dev/null)"; then
+		die "signature does not verify — do not install this"
+	fi
 
 	# Any listed key is acceptable: an older release is signed by whichever
 	# key was current when it was cut, and that signature stays valid.
@@ -166,7 +169,8 @@ require_sig_or_warn() {
 }
 
 verify() {
-	expected="$(grep " ${archive}\$" "${tmp}/checksums.txt" | awk '{print $1}')"
+	expected="$(awk -v want="${archive}" '$2 == want || $2 == "*" want {print $1}' \
+		"${tmp}/checksums.txt")"
 	[ -n "${expected}" ] || die "${archive} is not listed in checksums.txt"
 
 	if command -v sha256sum >/dev/null 2>&1; then
@@ -207,9 +211,9 @@ check_path() {
 	say ""
 	say "${PRIZM_INSTALL_DIR} is not on your PATH. Add it:"
 	say ""
-	case "${SHELL##*/}" in
-		fish) say "  fish_add_path ${PRIZM_INSTALL_DIR}" ;;
-		zsh)  say "  echo 'export PATH=\"${PRIZM_INSTALL_DIR}:\$PATH\"' >> ~/.zshrc" ;;
+	case "${SHELL:-}" in
+		*fish) say "  fish_add_path ${PRIZM_INSTALL_DIR}" ;;
+		*zsh)  say "  echo 'export PATH=\"${PRIZM_INSTALL_DIR}:\$PATH\"' >> ~/.zshrc" ;;
 		*)    say "  echo 'export PATH=\"${PRIZM_INSTALL_DIR}:\$PATH\"' >> ~/.bashrc" ;;
 	esac
 }
@@ -225,6 +229,14 @@ main() {
 	else
 		version="${PRIZM_VERSION}"
 		case "${version}" in v*) ;; *) version="v${version}" ;; esac
+		# It reaches a curl -o path; keep it to what a tag can be.
+		case "${version}" in
+			v[0-9]*) ;;
+			*) die "PRIZM_VERSION must look like v1.2.3, got '${PRIZM_VERSION}'" ;;
+		esac
+		case "${version}" in
+			*/*|*..*) die "PRIZM_VERSION must not contain a path" ;;
+		esac
 	fi
 
 	say "installing prizm ${version} for ${platform}"

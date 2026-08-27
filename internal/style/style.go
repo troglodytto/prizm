@@ -107,7 +107,7 @@ func (m Mark) Glyph() string {
 }
 
 // Column is a measured name-column width. Take one with WidthOf so a long
-// name like "search-svc" widens the column instead of pushing every
+// name like "payments-service" widens the column instead of pushing every
 // other row's detail out of alignment.
 type Column int
 
@@ -194,7 +194,6 @@ var tagColors = map[string]lipgloss.TerminalColor{
 	"prod":       Red,
 	"production": Red,
 	"qa":         Yellow,
-	"staging":    Yellow,
 	"staging":    Yellow,
 	"local":      Cyan,
 	"dev":        Cyan,

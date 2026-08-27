@@ -55,11 +55,11 @@ func TestRowAlignsTheDetailColumn(t *testing.T) {
 // A name wider than the default must widen the column for every row, not go
 // ragged — the reason Column is measured rather than fixed.
 func TestMeasuredColumnAlignsLongNames(t *testing.T) {
-	names := []string{"ai", "auth", "search-svc", "web-frontend"}
+	names := []string{"ai", "auth", "notification-service", "web-frontend"}
 	c := WidthOf(names)
 
-	if int(c) != len("search-svc") {
-		t.Errorf("WidthOf() = %d, want the widest name (%d)", c, len("search-svc"))
+	if int(c) != len("notification-service") {
+		t.Errorf("WidthOf() = %d, want the widest name (%d)", c, len("notification-service"))
 	}
 
 	first := c.Row(OK, names[0], "set (local)")

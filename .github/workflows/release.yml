@@ -17,8 +17,10 @@ on:
         description: "Existing tag to build and release"
         required: true
 
+# Scoped per job: `build` runs go build with cgo, executing third-party
+# module code, and must not hold a write-scoped token.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -56,9 +58,17 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "1"
+          # Through the environment, never interpolated into the script:
+          # ${{ }} is substituted as text before bash parses it, so a tag
+          # named v1.0`id` would execute. workflow_dispatch's tag input is
+          # free text, and this job's sibling holds the signing key.
+          TAG: ${{ inputs.tag || github.ref_name }}
+          MATRIX_GOOS: ${{ matrix.goos }}
+          MATRIX_GOARCH: ${{ matrix.goarch }}
+          MATRIX_CC: ${{ matrix.cc }}
         run: |
           set -euo pipefail
-          version="${{ inputs.tag || github.ref_name }}"
+          version="$TAG"
 
           # osusergo and netgo keep os/user and DNS in pure Go;
           # sqlite_omit_load_extension drops the dlopen SQLite would otherwise
@@ -67,11 +77,11 @@ jobs:
           tags="osusergo,netgo,sqlite_omit_load_extension"
           ldflags="-s -w -X github.com/troglodytto/prizm/internal/cli.version=${version}"
 
-          if [ "${{ matrix.goos }}" = "linux" ]; then
+          if [ "$MATRIX_GOOS" = "linux" ]; then
             export CC=musl-gcc
             ldflags="${ldflags} -linkmode external -extldflags -static"
-          elif [ -n "${{ matrix.cc }}" ]; then
-            export CC="${{ matrix.cc }}"
+          elif [ -n "${MATRIX_CC:-}" ]; then
+            export CC="$MATRIX_CC"
           fi
 
           go build -trimpath -tags "${tags}" -ldflags "${ldflags}" -o prizm .
@@ -87,8 +97,8 @@ jobs:
             awk -F'[\t=]' '$3=="GOOS"{o=$4} $3=="GOARCH"{a=$4} END{print o"/"a}')"
           echo "built ${built}"
 
-          [ "${built}" = "${{ matrix.goos }}/${{ matrix.goarch }}" ] || {
-            echo "wanted ${{ matrix.goos }}/${{ matrix.goarch }}" >&2
+          [ "${built}" = "${MATRIX_GOOS}/${MATRIX_GOARCH}" ] || {
+            echo "wanted ${MATRIX_GOOS}/${MATRIX_GOARCH}" >&2
             exit 1
           }
 
@@ -105,10 +115,14 @@ jobs:
           XDG_DATA_HOME: ${{ runner.temp }}/prizm-smoke
 
       - name: Package
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+          MATRIX_GOOS: ${{ matrix.goos }}
+          MATRIX_GOARCH: ${{ matrix.goarch }}
         run: |
           set -euo pipefail
-          version="${{ inputs.tag || github.ref_name }}"
-          name="prizm_${version}_${{ matrix.goos }}_${{ matrix.goarch }}"
+          version="$TAG"
+          name="prizm_${version}_${MATRIX_GOOS}_${MATRIX_GOARCH}"
           mkdir -p "dist/${name}"
           cp prizm LICENSE README.md "dist/${name}/"
           tar -czf "dist/${name}.tar.gz" -C dist "${name}"
@@ -123,11 +137,14 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     # Job-level, because a step's own `env` is not visible to its `if`.
     # Releases stay unsigned rather than failing if the secret is absent.
     env:
       GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
       GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -144,7 +161,12 @@ jobs:
 
       - name: Checksums
         working-directory: dist
-        run: sha256sum *.tar.gz | tee checksums.txt
+        # pipefail matters here: tee masks sha256sum's failure, and an empty
+        # checksums.txt publishes a release every installer then refuses.
+        run: |
+          set -euo pipefail
+          sha256sum *.tar.gz | tee checksums.txt
+          [ -s checksums.txt ]
 
       # Only checksums.txt is signed. Every archive's hash is in it, so one
       # signature covers the whole release: tamper with any tarball and its
@@ -172,7 +194,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          version="${{ inputs.tag || github.ref_name }}"
+          version="$TAG"
 
           # The tag is annotated and carries the release notes; reuse them
           # rather than writing a second description that can disagree.

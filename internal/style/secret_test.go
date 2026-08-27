@@ -101,13 +101,13 @@ func TestConnectionStringPasswordsAreRedacted(t *testing.T) {
 	reset(t)
 
 	got := Secret("MONGO_URI",
-		"mongodb://svcuser:fakeDBpassw0rd99@localhost:1040/acme-auth?tls=true")
+		"mongodb://svcuser:fakeDBpassw0rd99@localhost:1040/appdb?tls=true")
 
 	if strings.Contains(got, "fakeDBpassw0rd99") {
 		t.Fatalf("password leaked: %q", got)
 	}
 	// The host and database are the useful half of a diff — keep them.
-	for _, want := range []string{"mongodb://", "svcuser", "localhost:1040", "acme-auth"} {
+	for _, want := range []string{"mongodb://", "svcuser", "localhost:1040", "appdb"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("got %q, want it to still show %q", got, want)
 		}
