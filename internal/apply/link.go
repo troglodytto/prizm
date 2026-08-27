@@ -87,11 +87,35 @@ func preserveExisting(target string, now time.Time) (string, error) {
 		return "", nil
 	}
 
-	backup := fmt.Sprintf("%s.prizm-backup.%s", target, now.Format(backupStamp))
+	// The stamp is second-resolution, and os.Rename replaces its destination
+	// without complaint — so two applies inside one second had the second
+	// backup silently destroy the first. The mechanism that exists to
+	// preserve a file was the thing deleting it. Find a free name instead.
+	backup, err := freeBackupPath(target, now)
+	if err != nil {
+		return "", err
+	}
 	if err := os.Rename(target, backup); err != nil {
 		return "", fmt.Errorf("backing up %s: %w", target, err)
 	}
 	return backup, nil
+}
+
+// freeBackupPath returns a backup path that does not already exist, adding a
+// numeric suffix when the timestamp alone collides.
+func freeBackupPath(target string, now time.Time) (string, error) {
+	base := fmt.Sprintf("%s.prizm-backup.%s", target, now.Format(backupStamp))
+	if _, err := os.Lstat(base); os.IsNotExist(err) {
+		return base, nil
+	}
+
+	for n := 2; n < 1000; n++ {
+		candidate := fmt.Sprintf("%s.%d", base, n)
+		if _, err := os.Lstat(candidate); os.IsNotExist(err) {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("cannot find a free backup name beside %s", target)
 }
 
 // symlinkAtomic creates the link under a temp name, then renames it into place,

@@ -182,3 +182,54 @@ func TestApplyErrorsWhenRepoPathIsMissing(t *testing.T) {
 		t.Errorf("error = %q, want it to name the missing path", err)
 	}
 }
+
+// A second-resolution timestamp plus os.Rename meant a second apply inside
+// one second destroyed the first backup — the safety mechanism deleting the
+// thing it was protecting.
+func TestASecondBackupDoesNotDestroyTheFirst(t *testing.T) {
+	dir := t.TempDir()
+	env := filepath.Join(dir, ".env")
+	built := filepath.Join(t.TempDir(), "built.env")
+	frozen := time.Unix(1700000000, 0)
+
+	if err := os.WriteFile(env, []byte("PRECIOUS=one\n"), 0o600); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	if _, err := Apply(built, "PORT=1\n", dir, ".env", frozen); err != nil {
+		t.Fatalf("first apply: %v", err)
+	}
+
+	// The user puts a real file back, then applies again in the same second.
+	if err := os.Remove(env); err != nil {
+		t.Fatalf("remove link: %v", err)
+	}
+	if err := os.WriteFile(env, []byte("PRECIOUS=two\n"), 0o600); err != nil {
+		t.Fatalf("reseed: %v", err)
+	}
+	if _, err := Apply(built, "PORT=2\n", dir, ".env", frozen); err != nil {
+		t.Fatalf("second apply: %v", err)
+	}
+
+	entries, _ := os.ReadDir(dir)
+	var backups []string
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".prizm-backup.") {
+			backups = append(backups, e.Name())
+		}
+	}
+	if len(backups) != 2 {
+		t.Fatalf("got %d backup(s) %v, want 2 — the first must survive", len(backups), backups)
+	}
+
+	var seen []string
+	for _, b := range backups {
+		raw, _ := os.ReadFile(filepath.Join(dir, b))
+		seen = append(seen, string(raw))
+	}
+	joined := strings.Join(seen, "")
+	for _, want := range []string{"PRECIOUS=one", "PRECIOUS=two"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("backups = %v, want one containing %q", seen, want)
+		}
+	}
+}

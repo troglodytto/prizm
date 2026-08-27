@@ -18,19 +18,34 @@ func timeline() []Version {
 	}
 }
 
+func TestHistoryOpensOnTheNewestVersion(t *testing.T) {
+	m := newHistoryModel("k/auth", timeline())
+
+	// ⏎ is the likeliest first keystroke, so whatever the cursor rests on is
+	// effectively the default action. It must be the no-op, not a revert to
+	// the oldest recorded state.
+	if m.cursor != len(timeline())-1 {
+		t.Fatalf("cursor = %d, want the newest (%d)", m.cursor, len(timeline())-1)
+	}
+	if got, _ := m.update(press(tea.KeyEnter)).Result(); !got.Current {
+		t.Error("pressing enter immediately must select the current state")
+	}
+}
+
 func TestHistoryScrubsWithinBounds(t *testing.T) {
 	m := newHistoryModel("k/auth", timeline())
 
-	// The cursor starts on the oldest entry, and left cannot walk off it.
-	m = m.update(press(tea.KeyLeft)).update(press(tea.KeyLeft))
+	for i := 0; i < 5; i++ {
+		m = m.update(press(tea.KeyLeft))
+	}
 	if m.cursor != 0 {
-		t.Errorf("cursor = %d, want it pinned at 0", m.cursor)
+		t.Errorf("cursor = %d, want it pinned at the oldest", m.cursor)
 	}
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 9; i++ {
 		m = m.update(press(tea.KeyRight))
 	}
-	if m.cursor != 2 {
+	if m.cursor != len(timeline())-1 {
 		t.Errorf("cursor = %d, want it pinned at the newest", m.cursor)
 	}
 }
@@ -44,7 +59,7 @@ func TestHistoryEscCancels(t *testing.T) {
 
 func TestHistoryEnterReturnsTheHighlightedVersion(t *testing.T) {
 	m := newHistoryModel("k/auth", timeline()).
-		update(press(tea.KeyRight)).
+		update(press(tea.KeyLeft)).
 		update(press(tea.KeyEnter))
 
 	got, picked := m.Result()
@@ -54,7 +69,10 @@ func TestHistoryEnterReturnsTheHighlightedVersion(t *testing.T) {
 }
 
 func TestHistoryShowsTheDiffAgainstLive(t *testing.T) {
-	m := newHistoryModel("k/auth", timeline())
+	// Scrub back to a version that differs; the newest is the live state and
+	// has nothing to show.
+	m := newHistoryModel("k/auth", timeline()).
+		update(press(tea.KeyLeft)).update(press(tea.KeyLeft))
 	view := m.View()
 
 	if !strings.Contains(view, "PORT") || !strings.Contains(view, "9999 → 4000") {

@@ -32,10 +32,16 @@ const (
 	Unmanaged
 	// PathMissing means the repo directory is gone.
 	PathMissing
+	// Unresolvable means the repo's variables could not be resolved, so
+	// there is nothing to compare the file against. Distinct from NoFile:
+	// the file may be perfectly intact.
+	Unresolvable
 )
 
 func (l LinkState) String() string {
 	switch l {
+	case Unresolvable:
+		return "cannot resolve"
 	case NoFile:
 		return "not applied"
 	case Managed:
@@ -56,6 +62,9 @@ type Report struct {
 	Link     LinkState
 	LinkDest string
 	Diff     sharedfile.Diff
+	// Err carries why a repo is Unresolvable. Without it the reason — a
+	// reference cycle, an undefined ${…} — was known only to `up`.
+	Err error
 }
 
 // InSync reports whether nothing needs doing.

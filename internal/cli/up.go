@@ -149,6 +149,16 @@ func previewWorkflow(app *App, g store.Group, wf store.Workflow) error {
 // there and wrong here. The point of a dry run is to find out that a repo
 // would fail *before* running it for real, so the error propagates.
 func previewRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo) (map[string]string, sharedfile.Diff, error) {
+	// apply.Apply stats the directory first and fails when it is gone. The
+	// preview skipped that, so a moved checkout produced a clean dry run and
+	// then a failed apply — a preview that disagrees with the run it predicts
+	// is worse than no preview.
+	if info, err := os.Stat(repo.Path); err != nil || !info.IsDir() {
+		return nil, sharedfile.Diff{}, fmt.Errorf(
+			"repo path %s is missing or not a directory — run `prizm repair %s %s`",
+			style.Path(repo.Path), g.Name, repo.Name)
+	}
+
 	expected, err := buildEnv(app, wf, repo)
 	if err != nil {
 		return nil, sharedfile.Diff{}, err
@@ -195,19 +205,35 @@ func repoNames(repos []store.Repo) []string {
 	return names
 }
 
+// acquireApplyLock takes the exclusive lock every path that writes an env
+// file must hold.
+//
+// It lived inside applyWorkflow, so `prizm sync` — which also rewrites a
+// repo's file and re-points its symlink — ran without it. Two writers on the
+// same repo is the exact case the lock exists to prevent, and sync was
+// outside it.
+func acquireApplyLock() (*apply.Lock, error) {
+	dir, err := config.DataDir()
+	if err != nil {
+		return nil, err
+	}
+
+	lock, err := apply.Acquire(dir)
+	if err != nil {
+		if errors.Is(err, apply.ErrLocked) {
+			return nil, fmt.Errorf("another prizm apply is running — wait for it to finish")
+		}
+		return nil, err
+	}
+	return lock, nil
+}
+
 // applyWorkflow applies one workflow to every repo it covers. Repos are
 // independent: one that fails is reported and skipped, leaving its existing
 // env file untouched, while every other repo still applies.
 func applyWorkflow(app *App, g store.Group, wf store.Workflow) error {
-	dir, err := config.DataDir()
+	lock, err := acquireApplyLock()
 	if err != nil {
-		return err
-	}
-	lock, err := apply.Acquire(dir)
-	if err != nil {
-		if errors.Is(err, apply.ErrLocked) {
-			return fmt.Errorf("another prizm apply is running — wait for it to finish")
-		}
 		return err
 	}
 	defer lock.Release()

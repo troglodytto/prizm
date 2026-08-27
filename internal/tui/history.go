@@ -38,7 +38,15 @@ type historyModel struct {
 }
 
 func newHistoryModel(title string, versions []Version) historyModel {
-	return historyModel{title: title, versions: versions}
+	// Start on the newest, which is the live state and therefore a no-op.
+	// The zero value put the cursor on the oldest entry, so ⏎ — the most
+	// likely first keystroke — reverted the layer to its first-ever recorded
+	// state. A destructive default on a screen whose whole purpose is undo.
+	cursor := 0
+	if n := len(versions); n > 0 {
+		cursor = n - 1
+	}
+	return historyModel{title: title, versions: versions, cursor: cursor}
 }
 
 // Result reports the chosen version, and whether the user picked one.

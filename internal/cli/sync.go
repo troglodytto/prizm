@@ -55,6 +55,15 @@ func newSyncCmd(app *App) *cobra.Command {
 				byID[w.ID] = w
 			}
 
+			// sync rewrites env files and re-points symlinks, so it needs
+			// the same exclusive lock `up` takes. Without it, a concurrent
+			// up interleaves with it on the same repos.
+			lock, err := acquireApplyLock()
+			if err != nil {
+				return err
+			}
+			defer lock.Release()
+
 			touched := 0
 			for _, repo := range repos {
 				state, ok := applied[repo.ID]
@@ -122,6 +131,13 @@ func syncRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo, yes, 
 	if report.Link == drift.PathMissing {
 		app.result(style.Fail, repo.Name, "path missing — run `prizm repair`")
 		return false, nil
+	}
+	// Nothing can be compared against a repo that will not resolve, but
+	// "nothing to reconcile" is the wrong thing to say about it — that reads
+	// as all clear when the configuration is broken.
+	if report.Link == drift.Unresolvable {
+		app.result(style.Fail, repo.Name, report.Err.Error())
+		return true, nil
 	}
 	if report.Diff.Empty() {
 		return false, nil

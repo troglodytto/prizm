@@ -146,6 +146,9 @@ func statusOf(report drift.Report, wf store.Workflow) (style.Mark, string) {
 	case report.Link == drift.PathMissing:
 		return style.Fail, "path missing — " + style.Path(report.Repo.Path)
 
+	case report.Link == drift.Unresolvable:
+		return style.Fail, wf.Name + " · " + report.Err.Error()
+
 	case report.Link == drift.NoFile:
 		return style.Warn, wf.Name + " · env file is gone"
 
@@ -176,9 +179,11 @@ func inspectRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo) (d
 	// first showed up as a hand-added key.
 	expected, err := buildEnv(app, wf, repo)
 	if err != nil {
-		// A repo that cannot resolve cannot be compared; report it as
-		// unapplied rather than failing the whole listing.
-		return drift.Report{Repo: repo, Link: drift.NoFile}, nil
+		// A repo that cannot resolve cannot be compared, and the listing
+		// should still finish — but reporting it as NoFile claimed the env
+		// file was gone when it was sitting there intact, and sent sync
+		// down a path where it silently did nothing. Carry the reason.
+		return drift.Report{Repo: repo, Link: drift.Unresolvable, Err: err}, nil
 	}
 
 	builtPath, err := config.BuiltPath(g.Name, wf.Name, repo.Name)
