@@ -13,9 +13,18 @@
 # Environment:
 #   PRIZM_VERSION       version to install (default: the latest release)
 #   PRIZM_INSTALL_DIR   where to put the binary (default: ~/.local/bin)
+#   PRIZM_REQUIRE_SIG   set to 1 to abort unless the GPG signature verifies
 #
 # Installs into your home directory and never calls sudo. Every download is
 # checked against the release's published SHA-256 before anything is unpacked.
+#
+# Releases are also signed. If gpg is installed and you already trust the
+# signing key, the signature is checked automatically; otherwise the checksum
+# alone is used and the script says so. To demand a signature, import the key
+# and set PRIZM_REQUIRE_SIG=1:
+#
+#   gpg --recv-keys 49B66FF00161FF5AF6587CB59083374841288B9D
+#   PRIZM_REQUIRE_SIG=1 sh install.sh
 
 set -eu
 
@@ -24,6 +33,12 @@ BIN="prizm"
 
 : "${PRIZM_INSTALL_DIR:=${HOME}/.local/bin}"
 : "${PRIZM_VERSION:=}"
+: "${PRIZM_REQUIRE_SIG:=0}"
+
+# The key releases are signed with. Verified against this fingerprint rather
+# than against "any key that happens to be in your keyring" — otherwise a
+# signature proves only that somebody signed something.
+SIGNING_KEY="49B66FF00161FF5AF6587CB59083374841288B9D"
 
 tmp=""
 cleanup() { [ -n "${tmp}" ] && rm -rf "${tmp}"; }
@@ -87,6 +102,44 @@ download() {
 
 	curl -fsSL -o "${tmp}/checksums.txt" "${base}/checksums.txt" ||
 		die "could not download checksums; refusing to install unverified"
+
+	# Optional, so its absence is not an error here — verify_signature decides.
+	curl -fsSL -o "${tmp}/checksums.txt.asc" "${base}/checksums.txt.asc" 2>/dev/null || true
+}
+
+# ── Signature ─────────────────────────────────────────────────────────────
+# Checked before the checksum, because the signature is what makes the
+# checksum worth anything: an attacker who can serve you a tarball can serve
+# you a matching hash just as easily.
+verify_signature() {
+	if [ ! -s "${tmp}/checksums.txt.asc" ]; then
+		require_sig_or_warn "this release is not signed"
+		return
+	fi
+
+	if ! command -v gpg >/dev/null 2>&1; then
+		require_sig_or_warn "gpg is not installed"
+		return
+	fi
+
+	if ! gpg --list-keys "${SIGNING_KEY}" >/dev/null 2>&1; then
+		require_sig_or_warn "the signing key is not in your keyring"
+		return
+	fi
+
+	gpg --status-fd 1 --verify "${tmp}/checksums.txt.asc" "${tmp}/checksums.txt" 2>/dev/null |
+		grep -q "^\[GNUPG:\] VALIDSIG ${SIGNING_KEY}" ||
+		die "signature does not verify against ${SIGNING_KEY} — do not install this"
+
+	say "signature ok (${SIGNING_KEY})"
+}
+
+require_sig_or_warn() {
+	if [ "${PRIZM_REQUIRE_SIG}" = "1" ]; then
+		die "PRIZM_REQUIRE_SIG=1 but $1"
+	fi
+	say "note: signature not checked — $1"
+	say "      to verify: gpg --recv-keys ${SIGNING_KEY}"
 }
 
 verify() {
@@ -155,6 +208,7 @@ main() {
 
 	tmp="$(mktemp -d)"
 	download
+	verify_signature
 	verify
 	install_binary
 

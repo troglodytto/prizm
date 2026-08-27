@@ -39,11 +39,17 @@ curl -fsSL https://raw.githubusercontent.com/troglodytto/prizm/main/install.sh |
 ```
 
 If piping a script from the internet into a shell makes you uneasy — and it
-reasonably might — read it first, then run it:
+reasonably might — download it and read it:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/troglodytto/prizm/main/install.sh
-less install.sh && sh install.sh
+less install.sh
+```
+
+Then, once you have decided you are happy with it:
+
+```bash
+sh install.sh
 ```
 
 It never calls sudo, and it checks every download against the release's
@@ -66,8 +72,27 @@ neither.
 | **macOS** | Apple silicon and Intel |
 | **Windows** | not yet — the apply lock uses `flock`. [Open an issue](https://github.com/troglodytto/prizm/issues) if you want it |
 
+### Verifying a release
+
 Every build is attached to a [GitHub release](https://github.com/troglodytto/prizm/releases)
-with checksums, if you would rather download by hand.
+alongside a `checksums.txt` and a detached GPG signature over it. One signature
+covers the whole release: change any archive and its hash stops matching;
+change the list of hashes and the signature breaks.
+
+```bash
+gpg --recv-keys 49B66FF00161FF5AF6587CB59083374841288B9D
+gpg --verify checksums.txt.asc checksums.txt
+sha256sum -c checksums.txt --ignore-missing
+```
+
+The installer does this for you when `gpg` is present and you already trust
+that key. It checks the signature came from **that** fingerprint, not merely
+from some key you happen to hold — otherwise a signature proves only that
+somebody signed something. To refuse to install without one:
+
+```bash
+PRIZM_REQUIRE_SIG=1 sh install.sh
+```
 
 Values are encrypted with a key from your OS keychain. The keychain is only
 consulted when a command actually reads or writes a value — `--version`,

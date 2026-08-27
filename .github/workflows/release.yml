@@ -101,6 +101,11 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    # Job-level, because a step's own `env` is not visible to its `if`.
+    # Releases stay unsigned rather than failing if the secret is absent.
+    env:
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -118,6 +123,27 @@ jobs:
       - name: Checksums
         working-directory: dist
         run: sha256sum *.tar.gz | tee checksums.txt
+
+      # Only checksums.txt is signed. Every archive's hash is in it, so one
+      # signature covers the whole release: tamper with any tarball and its
+      # hash stops matching; tamper with the list and the signature breaks.
+      - name: Sign checksums
+        if: env.GPG_PRIVATE_KEY != ''
+        run: |
+          set -euo pipefail
+          printf '%s' "$GPG_PRIVATE_KEY" | gpg --batch --quiet --import
+
+          args="--batch --yes --pinentry-mode loopback --armor --detach-sign"
+          if [ -n "${GPG_PASSPHRASE:-}" ]; then
+            printf '%s' "$GPG_PASSPHRASE" |
+              gpg $args --passphrase-fd 0 \
+                --output dist/checksums.txt.asc dist/checksums.txt
+          else
+            gpg $args --output dist/checksums.txt.asc dist/checksums.txt
+          fi
+
+          # Never publish a signature that does not verify.
+          gpg --verify dist/checksums.txt.asc dist/checksums.txt
 
       - name: Publish
         env:
