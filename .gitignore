@@ -1,0 +1,7 @@
+# Build output
+/prizm
+/dist/
+
+# Go
+*.test
+*.out
