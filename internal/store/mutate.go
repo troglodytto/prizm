@@ -104,3 +104,35 @@ func (s *Store) UpdateRepoPath(id int64, path string) error {
 	_, err := s.db.Exec(`UPDATE repos SET path = ? WHERE id = ?`, path, id)
 	return err
 }
+
+// SetWorkflowTag changes a workflow's guardrail tag. An empty tag clears it.
+func (s *Store) SetWorkflowTag(id int64, tag string) error {
+	_, err := s.db.Exec(`UPDATE workflows SET tag = ? WHERE id = ?`, tag, id)
+	return err
+}
+
+// ReplaceWorkflowRepos makes a workflow's membership exactly repoIDs.
+//
+// Variables for a repo that drops out are deliberately kept: removing a repo
+// from a workflow is usually a change of scope, not a decision to throw away
+// its configuration, and adding it back should not mean retyping everything.
+// `prizm unset` is how you actually discard values.
+func (s *Store) ReplaceWorkflowRepos(id int64, repoIDs []int64) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`DELETE FROM workflow_repos WHERE workflow_id = ?`, id); err != nil {
+		return err
+	}
+	for _, repoID := range repoIDs {
+		if _, err := tx.Exec(
+			`INSERT INTO workflow_repos(workflow_id, repo_id) VALUES (?, ?)`, id, repoID,
+		); err != nil {
+			return fmt.Errorf("adding repo %d to the workflow: %w", repoID, err)
+		}
+	}
+	return tx.Commit()
+}

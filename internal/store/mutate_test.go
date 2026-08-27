@@ -158,3 +158,65 @@ func TestCountsFor(t *testing.T) {
 		t.Errorf("CountsFor() = (%d, %d, %d), want (1, 1, 2)", repos, workflows, vars)
 	}
 }
+
+func TestSetWorkflowTag(t *testing.T) {
+	s := newTestStore(t)
+	g, _ := s.CreateGroup("g")
+	wf, _ := s.AddWorkflow(g.ID, "local", "local", nil)
+
+	if err := s.SetWorkflowTag(wf.ID, "qa"); err != nil {
+		t.Fatalf("SetWorkflowTag() error = %v", err)
+	}
+	got, _ := s.WorkflowByName(g.ID, "local")
+	if got.Tag != "qa" {
+		t.Errorf("Tag = %q, want %q", got.Tag, "qa")
+	}
+
+	if err := s.SetWorkflowTag(wf.ID, ""); err != nil {
+		t.Fatalf("clearing the tag error = %v", err)
+	}
+	if got, _ := s.WorkflowByName(g.ID, "local"); got.Tag != "" {
+		t.Errorf("Tag = %q, want it cleared", got.Tag)
+	}
+}
+
+func TestReplaceWorkflowRepos(t *testing.T) {
+	s := newTestStore(t)
+	g, _ := s.CreateGroup("g")
+	a, _ := s.AddRepo(g.ID, "a", "/tmp/a", "")
+	b, _ := s.AddRepo(g.ID, "b", "/tmp/b", "")
+	c, _ := s.AddRepo(g.ID, "c", "/tmp/c", "")
+	wf, _ := s.AddWorkflow(g.ID, "local", "", []int64{a.ID, b.ID})
+
+	if err := s.ReplaceWorkflowRepos(wf.ID, []int64{b.ID, c.ID}); err != nil {
+		t.Fatalf("ReplaceWorkflowRepos() error = %v", err)
+	}
+
+	repos, _ := s.WorkflowRepos(wf.ID)
+	var names []string
+	for _, r := range repos {
+		names = append(names, r.Name)
+	}
+	if len(names) != 2 || names[0] != "b" || names[1] != "c" {
+		t.Errorf("WorkflowRepos() = %v, want [b c]", names)
+	}
+}
+
+// Dropping a repo from a workflow is a change of scope, not a decision to
+// discard its configuration — adding it back must not mean retyping.
+func TestReplaceWorkflowReposKeepsTheVariablesOfDroppedRepos(t *testing.T) {
+	s := newTestStore(t)
+	g, _ := s.CreateGroup("g")
+	a, _ := s.AddRepo(g.ID, "a", "/tmp/a", "")
+	b, _ := s.AddRepo(g.ID, "b", "/tmp/b", "")
+	wf, _ := s.AddWorkflow(g.ID, "local", "", []int64{a.ID, b.ID})
+	s.SetWorkflowRepoVar(wf.ID, b.ID, "KEEP", "me")
+
+	s.ReplaceWorkflowRepos(wf.ID, []int64{a.ID})
+	s.ReplaceWorkflowRepos(wf.ID, []int64{a.ID, b.ID})
+
+	vars, _ := s.WorkflowRepoVars(wf.ID, b.ID)
+	if vars["KEEP"] != "me" {
+		t.Errorf("variables lost when the repo left and came back: %v", vars)
+	}
+}

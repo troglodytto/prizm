@@ -178,21 +178,16 @@ func chooseRepos(app *App, g store.Group, list, purpose string) ([]int64, error)
 		return ids, nil
 	}
 
-	options := make([]tui.Option, 0, len(repos))
 	all := make([]string, 0, len(repos))
 	byName := make(map[string]int64, len(repos))
 	for _, r := range repos {
-		options = append(options, tui.Option{Value: r.Name, Label: r.Name, Desc: r.Path})
 		all = append(all, r.Name)
 		byName[r.Name] = r.ID
 	}
 
-	chosen, err := app.PickMany(purpose, options, all)
+	chosen, err := app.PickMany(purpose, repoOptions(repos), all)
 	if err != nil {
-		if errors.Is(err, tui.ErrCancelled) {
-			return nil, errCancelledByUser
-		}
-		return nil, err
+		return nil, cancelled(err)
 	}
 
 	out := make([]int64, 0, len(chosen))
@@ -204,6 +199,23 @@ func chooseRepos(app *App, g store.Group, list, purpose string) ([]int64, error)
 
 // errCancelledByUser signals a clean abort up to the command boundary.
 var errCancelledByUser = errors.New("cancelled by user")
+
+// repoOptions turns repos into picker rows.
+func repoOptions(repos []store.Repo) []tui.Option {
+	out := make([]tui.Option, 0, len(repos))
+	for _, r := range repos {
+		out = append(out, tui.Option{Value: r.Name, Label: r.Name, Desc: r.Path})
+	}
+	return out
+}
+
+// cancelled maps a picker abort onto the command-boundary sentinel.
+func cancelled(err error) error {
+	if errors.Is(err, tui.ErrCancelled) {
+		return errCancelledByUser
+	}
+	return err
+}
 
 // quietCancel turns a user abort into a clean exit.
 func quietCancel(err error) error {

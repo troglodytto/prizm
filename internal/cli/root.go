@@ -88,6 +88,7 @@ func NewRootCmd(app *App) *cobra.Command {
 		newInitCmd(app),
 		newAddRepoCmd(app),
 		newAddWorkflowCmd(app),
+		newEditWorkflowCmd(app),
 		newLsCmd(app),
 		newPickCmd(app),
 		newVarCmd(app),

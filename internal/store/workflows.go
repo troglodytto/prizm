@@ -18,7 +18,7 @@ var ErrReservedName = errors.New("name is reserved")
 // today must not block them.
 var reservedNames = map[string]bool{
 	"up": true, "down": true, "ls": true, "list": true, "status": true,
-	"init": true, "add-repo": true, "add-workflow": true, "var": true,
+	"init": true, "add-repo": true, "add-workflow": true, "edit-workflow": true, "var": true,
 	"import": true, "edit": true, "sync": true, "audit": true,
 	"docker": true, "docker-add": true, "docker-ls": true, "repair": true,
 	"shared-add": true, "shared-edit": true, "shared-ls": true, "shared-sync": true,
