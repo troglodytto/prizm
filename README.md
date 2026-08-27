@@ -29,6 +29,7 @@ One command sets all four up, each with its own env file, built from its own lay
 ## Contents
 
 - [The problem](#the-problem) — why this exists
+- [How this differs](#how-this-differs) — direnv, Doppler, and when to use those instead
 - [Installation](#installation) — one curl command, or `go install`
 - [Getting started](#getting-started) — working setup in six lines
 - [How it works](#how-it-works) — groups, workflows, and the four layers
@@ -43,6 +44,29 @@ One command sets all four up, each with its own env file, built from its own lay
 You have a project spread across several repos. Running it locally means a `.env` in each one, and those files drift: the database URL is duplicated in three of them, one is stale, and the only way to find out is when something fails at 2am.
 
 Copying files around doesn't fix it, because the *sets* differ. Working on the frontend against a deployed backend needs one repo configured. Running the full stack needs four. Debugging payments needs two. These aren't environments — they're workflows, and each one is a different bundle of repos.
+
+## How this differs
+
+The space is crowded, and most of it solves a neighbouring problem well:
+
+| | Good at | Why not this |
+| --- | --- | --- |
+| **direnv**, **mise** | loading env when you `cd` into a directory | one directory at a time — nothing composes values *across* repos |
+| **Doppler**, **Infisical**, **EnvKey** | one value, many consumers, with a team and an audit trail | organised by *environment*; needs an account and a running service |
+| **dotenvx**, **SOPS** | keeping secrets encrypted inside a repo | a single repo's file, not a set of them |
+| **Turborepo**, **Nx** | sharing config inside a monorepo | assumes one repo |
+
+prizm's axis is the **workflow**: a named, arbitrary subset of separately
+cloned repos, configured together by one command. "Frontend against deployed
+QA" and "full stack locally" are not environments — they are different slices
+of the same repos, and that is the thing the models above do not have a shape
+for. It is local-first as well: no account, no service, nothing leaves your
+machine.
+
+**Use something else if** you are in a monorepo — a root `.env` and your build
+tool already do this — or if you need shared secrets for a team with access
+control and an audit trail, which Doppler and Infisical are built for and this
+deliberately is not.
 
 ## Installation
 
