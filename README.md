@@ -8,7 +8,7 @@ prizm platform local
 
 One command sets up `frontend`, `backend`, `auth` and `ai` — each with its own env file, built from its own layered configuration, symlinked into place.
 
-> **Pre-release.** The design is settled and the foundations are landing; the command tree isn't wired up yet. `v0.1.0` will be the first usable release.
+> **v0.1.0.** Usable: define groups, repos and workflows, layer and interpolate variables, apply them, and complete them from your shell. Not yet: `status`, `sync`, an interactive picker, history, or compose integration.
 
 ## The problem
 
