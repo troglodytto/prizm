@@ -14,7 +14,10 @@ import (
 )
 
 func newVarCmd(app *App) *cobra.Command {
-	var workflow string
+	var (
+		workflow string
+		global   bool
+	)
 
 	cmd := &cobra.Command{
 		Use:               "var [group] [repo] KEY=VALUE [KEY=VALUE...]",
@@ -25,9 +28,18 @@ func newVarCmd(app *App) *cobra.Command {
 			"repo-shared layer and any shared bag.\n\n" +
 			"Values are stored verbatim: ${OTHER_VAR} references are expanded at `up`\n" +
 			"time, not here. Keys starting with _PRIZM_ are internal — usable in\n" +
-			"templates, never written to the repo's env file.",
+			"templates, never written to the repo's env file.\n\n" +
+			"--global writes to the group-global layer instead: true for every repo\n" +
+			"in every workflow, and the lowest-precedence layer there is.",
 		Args: usageArgs(cobra.MinimumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if global {
+				if workflow != "" {
+					return errUsage("--global and --workflow name different layers — pick one")
+				}
+				return setGlobalVars(app, args)
+			}
+
 			g, repo, assignments, err := app.splitGroupRepo(args, countAssignments(args))
 			if err != nil {
 				return err
@@ -55,7 +67,37 @@ func newVarCmd(app *App) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&workflow, "workflow", "", "scope the variables to one workflow")
+	cmd.Flags().BoolVar(&global, "global", false, "write to the group-global layer instead")
 	return cmd
+}
+
+// setGlobalVars writes to layer 0 — the values true for every repo in every
+// workflow. It mirrors `unset --global`, which already existed; having the
+// removal but not the write made the layer feel like something only a file
+// could produce.
+func setGlobalVars(app *App, args []string) error {
+	g, assignments, err := app.splitGroup(args, countAssignments(args))
+	if err != nil {
+		return err
+	}
+	if len(assignments) == 0 {
+		return errUsage("nothing to set — pass at least one KEY=VALUE")
+	}
+
+	for _, assignment := range assignments {
+		key, value, err := parseAssignment(assignment)
+		if err != nil {
+			return err
+		}
+		if err := app.Store.SetGroupVar(g.ID, key, value); err != nil {
+			return err
+		}
+	}
+
+	app.snapshot(store.GroupScope(g.ID), store.SourceVar, varNote(assignments))
+	app.result(style.OK, g.Name, fmt.Sprintf("%d variable(s) set (global)", len(assignments)))
+	app.hint("a group-global value is overridden by any bag or repo layer that names the same key")
+	return nil
 }
 
 func newImportCmd(app *App) *cobra.Command {

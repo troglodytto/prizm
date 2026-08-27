@@ -264,3 +264,64 @@ func TestUpUnknownWorkflow(t *testing.T) {
 		t.Errorf("error = %v, want it to name the unknown workflow", err)
 	}
 }
+
+func TestDryRunWritesNothing(t *testing.T) {
+	h := newHarness(t)
+	dir := h.repoDir(t, "auth")
+
+	h.run(t, "init", "k")
+	h.run(t, "add-repo", "k", "auth", "--path", dir)
+	h.run(t, "add-workflow", "k", "local", "--repos", "auth")
+	h.run(t, "var", "k", "auth", "PORT=4000")
+
+	if err := h.run(t, "up", "k", "local", "--dry-run"); err != nil {
+		t.Fatalf("dry run: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, ".env")); !os.IsNotExist(err) {
+		t.Error(".env exists — a dry run must not write")
+	}
+
+	out := h.out.String()
+	if !strings.Contains(out, "PORT") {
+		t.Errorf("output = %q, want the keys that would be written", out)
+	}
+	if !strings.Contains(out, "dry run") {
+		t.Errorf("output = %q, want it to say nothing was written", out)
+	}
+}
+
+func TestDryRunOnAnAppliedRepoReportsNoChange(t *testing.T) {
+	h := newHarness(t)
+	dir := h.repoDir(t, "auth")
+
+	h.run(t, "init", "k")
+	h.run(t, "add-repo", "k", "auth", "--path", dir)
+	h.run(t, "add-workflow", "k", "local", "--repos", "auth")
+	h.run(t, "var", "k", "auth", "PORT=4000")
+	h.run(t, "up", "k", "local")
+
+	if err := h.run(t, "up", "k", "local", "--dry-run"); err != nil {
+		t.Fatalf("dry run: %v", err)
+	}
+	if !strings.Contains(h.out.String(), "already up to date") {
+		t.Errorf("output = %q, want it to report no change", h.out.String())
+	}
+}
+
+func TestDryRunReportsAFailingRepoWithoutApplyingAnything(t *testing.T) {
+	h := newHarness(t)
+	dir := h.repoDir(t, "auth")
+
+	h.run(t, "init", "k")
+	h.run(t, "add-repo", "k", "auth", "--path", dir)
+	h.run(t, "add-workflow", "k", "local", "--repos", "auth")
+	h.run(t, "var", "k", "auth", "BROKEN=${_PRIZM_MISSING}")
+
+	if err := h.run(t, "up", "k", "local", "--dry-run"); err == nil {
+		t.Fatal("want an error: the repo would fail to apply")
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".env")); !os.IsNotExist(err) {
+		t.Error(".env exists — a failed dry run must not write either")
+	}
+}

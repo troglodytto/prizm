@@ -39,6 +39,9 @@ type App struct {
 	// PickHistory scrubs a version timeline and returns the one to restore.
 	PickHistory func(title string, versions []tui.Version) (tui.Version, bool, error)
 
+	// EditFile opens a path in the user's editor and returns when it exits.
+	EditFile func(path string) error
+
 	pickerInjected bool
 }
 
@@ -111,6 +114,7 @@ func commandsOf(app *App) []*cobra.Command {
 		newStatusCmd(app),
 		newSyncCmd(app),
 		newAuditCmd(app),
+		newEditCmd(app),
 		newRepairCmd(app),
 		newRenameCmd(app),
 		newRemoveCmd(app),
@@ -155,6 +159,7 @@ func Execute() int {
 	app.PickMany = tui.PickMany
 	app.Resolve = tui.Resolve
 	app.PickHistory = tui.History
+	app.EditFile = launchEditor
 
 	root := NewRootCmd(app)
 	root.SetArgs(rewriteArgs(app, root, os.Args[1:]))
