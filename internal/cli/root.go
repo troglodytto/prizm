@@ -40,6 +40,9 @@ type App struct {
 	// PickHistory scrubs a version timeline and returns the one to restore.
 	PickHistory func(title string, versions []tui.Version) (tui.Version, bool, error)
 
+	// PickAction is PickOne plus the verb chosen — `e` for edit.
+	PickAction func(heading, context string, options []tui.Option, editable bool) (string, tui.PickAction, error)
+
 	// EditFile opens a path in the user's editor and returns when it exits.
 	EditFile func(path string) error
 
@@ -166,6 +169,7 @@ func Execute() int {
 	app.PickMany = tui.PickMany
 	app.Resolve = tui.Resolve
 	app.PickHistory = tui.History
+	app.PickAction = tui.PickOneAction
 	app.EditFile = launchEditor
 	app.Docker = compose.CLI{}
 

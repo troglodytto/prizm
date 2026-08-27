@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -264,6 +265,17 @@ func registerScopedFlags(app *App, cmd *cobra.Command) {
 				return app.completeTags(toComplete)
 			})
 	}
+	if cmd.Flag("services") != nil {
+		_ = cmd.RegisterFlagCompletionFunc("services",
+			func(c *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+				// The file is either being typed on this same line, or was
+				// attached earlier; try the line first.
+				if path := flagValue(c, "compose"); path != "" {
+					return completeServices(path, toComplete)
+				}
+				return app.completeAttachedServices(args, toComplete)
+			})
+	}
 	if cmd.Flag("bag") != nil {
 		_ = cmd.RegisterFlagCompletionFunc("bag",
 			func(c *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
@@ -274,10 +286,90 @@ func registerScopedFlags(app *App, cmd *cobra.Command) {
 	}
 }
 
+// completeAttachedServices falls back to the compose file already attached to
+// the workflow, which is the case when someone is narrowing an existing stack.
+func (a *App) completeAttachedServices(args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	_, wf, err := a.groupWorkflow(args)
+	if err != nil {
+		return nil, noFiles
+	}
+
+	stack, err := a.Store.DockerStackFor(wf.ID)
+	if err != nil {
+		return nil, noFiles
+	}
+	return completeServices(stack.ComposePath, toComplete)
+}
+
 // flagValue reads a flag already typed on the line, or "" if it is absent.
 func flagValue(cmd *cobra.Command, name string) string {
 	if f := cmd.Flag(name); f != nil {
 		return f.Value.String()
 	}
 	return ""
+}
+
+// contains reports membership. Used by the completers to hide a candidate
+// the user has already chosen.
+func contains(haystack []string, needle string) bool {
+	for _, v := range haystack {
+		if v == needle {
+			return true
+		}
+	}
+	return false
+}
+
+// completeServices offers the service names in a compose file.
+//
+// It scans the YAML for top-level `services:` keys rather than shelling out
+// to `docker compose config --services`: completion has to work with the
+// daemon closed, which is exactly when someone is setting this up.
+func completeServices(path, toComplete string) ([]string, cobra.ShellCompDirective) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, noFiles
+	}
+
+	var (
+		out      []string
+		inBlock  bool
+		indent   = -1
+		existing = strings.Split(toComplete, ",")
+	)
+	// Everything before the last comma is already chosen and must be echoed
+	// back, since the shell replaces the whole word.
+	prefix := ""
+	if i := strings.LastIndex(toComplete, ","); i >= 0 {
+		prefix = toComplete[:i+1]
+	}
+
+	for _, line := range strings.Split(string(raw), "\n") {
+		if strings.HasPrefix(line, "services:") {
+			inBlock = true
+			continue
+		}
+		if !inBlock || strings.TrimSpace(line) == "" || strings.HasPrefix(strings.TrimSpace(line), "#") {
+			continue
+		}
+
+		lead := len(line) - len(strings.TrimLeft(line, " "))
+		if lead == 0 {
+			break // a new top-level key ends the services block
+		}
+		if indent == -1 {
+			indent = lead
+		}
+		if lead != indent {
+			continue // a service's own settings, not another service
+		}
+
+		name := strings.TrimSuffix(strings.TrimSpace(line), ":")
+		if name == "" || contains(existing, name) {
+			continue
+		}
+		out = append(out, prefix+name)
+	}
+
+	return out, noFiles | cobra.ShellCompDirectiveNoSpace
 }

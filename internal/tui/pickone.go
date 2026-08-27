@@ -7,6 +7,18 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// PickAction is what the user asked for when they left the picker.
+type PickAction int
+
+const (
+	// ActionNone means they cancelled.
+	ActionNone PickAction = iota
+	// ActionSelect is the ordinary ⏎.
+	ActionSelect
+	// ActionEdit means they pressed `e`: open this one in $EDITOR instead.
+	ActionEdit
+)
+
 type pickOneModel struct {
 	title     string
 	context   string
@@ -16,6 +28,8 @@ type pickOneModel struct {
 	filtering bool
 	done      bool
 	chose     bool
+	action    PickAction
+	editable  bool // offer `e`; off where there is nothing to edit
 }
 
 func newPickOneModel(title string, options []Option) pickOneModel {
@@ -87,7 +101,7 @@ func (m pickOneModel) update(msg tea.Msg) pickOneModel {
 		m = m.move(1)
 	case tea.KeyEnter:
 		if _, ok := m.current(); ok {
-			m.done, m.chose = true, true
+			m.done, m.chose, m.action = true, true, ActionSelect
 		}
 	case tea.KeyRunes:
 		switch key.Runes[0] {
@@ -99,6 +113,13 @@ func (m pickOneModel) update(msg tea.Msg) pickOneModel {
 			m.filtering = true
 		case 'q':
 			m.done = true
+		case 'e':
+			// Letters are free outside filter mode, so `e` costs nothing —
+			// and browsing to a thing then wanting to edit it is the same
+			// motion either way.
+			if _, ok := m.current(); ok && m.editable {
+				m.done, m.chose, m.action = true, true, ActionEdit
+			}
 		}
 	}
 	return m
@@ -192,6 +213,8 @@ func (m pickOneModel) View() string {
 	if m.filtering {
 		b.WriteString(filterStyle.Render("/"+m.filter+"▏") + "   " +
 			help("⏎", "select", "esc", "clear"))
+	} else if m.editable {
+		b.WriteString(help("↑↓", "move", "/", "filter", "⏎", "select", "e", "edit", "esc", "cancel"))
 	} else {
 		b.WriteString(help("↑↓", "move", "/", "filter", "⏎", "select", "esc", "cancel"))
 	}
@@ -200,17 +223,29 @@ func (m pickOneModel) View() string {
 
 // PickOne shows a filterable list and returns the chosen option's value.
 func PickOne(heading, context string, options []Option) (string, error) {
+	value, _, err := PickOneAction(heading, context, options, false)
+	return value, err
+}
+
+// PickOneAction is PickOne plus the verb the user chose. With editable set,
+// `e` returns ActionEdit for the highlighted row instead of selecting it.
+func PickOneAction(heading, context string, options []Option, editable bool) (string, PickAction, error) {
 	m := newPickOneModel(heading, options)
-	m.context = context
+	m.context, m.editable = context, editable
 
 	final, err := run(m)
 	if err != nil {
-		return "", err
+		return "", ActionNone, err
 	}
 
-	value, chose := final.(pickOneModel).Result()
-	if !chose {
-		return "", ErrCancelled
+	model, ok := final.(pickOneModel)
+	if !ok {
+		return "", ActionNone, ErrCancelled
 	}
-	return value, nil
+
+	value, chose := model.Result()
+	if !chose {
+		return "", ActionNone, ErrCancelled
+	}
+	return value, model.action, nil
 }

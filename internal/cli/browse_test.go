@@ -221,3 +221,64 @@ func TestBarePrizmShowsHelpNotThePicker(t *testing.T) {
 		t.Errorf("output = %q, want the help text", got)
 	}
 }
+
+func TestBrowseEditKeyOpensTheEditor(t *testing.T) {
+	h := newHarness(t)
+	fixedClock(t)
+	h.app.pickerInjected = true
+
+	repoDir := h.repoDir(t, "auth")
+	h.run(t, "init", "k")
+	h.run(t, "add-repo", "k", "auth", "--path", repoDir)
+	h.run(t, "add-workflow", "k", "local", "--repos", "auth")
+
+	// The workflow picker returns `e`; the repo picker that follows is a
+	// plain selection.
+	h.app.PickAction = func(string, string, []tui.Option, bool) (string, tui.PickAction, error) {
+		return "local", tui.ActionEdit, nil
+	}
+	h.app.PickOne = func(string, string, []tui.Option) (string, error) { return "auth", nil }
+	h.editWith(func(string) string { return "PORT=4000\n" })
+
+	if err := h.run(t, "pick", "k"); err != nil {
+		t.Fatalf("browse: %v", err)
+	}
+
+	g, _ := h.app.Store.GroupByName("k")
+	wf, _ := h.app.Store.WorkflowByName(g.ID, "local")
+	repo, _ := h.app.Store.RepoByName(g.ID, "auth")
+
+	vars, _ := h.app.Store.WorkflowRepoVars(wf.ID, repo.ID)
+	if vars["PORT"] != "4000" {
+		t.Errorf("vars = %v, want the edit saved to the repo+workflow layer", vars)
+	}
+
+	// `e` must not also apply — that is what ⏎ is for.
+	if _, err := os.Stat(filepath.Join(repoDir, ".env")); err == nil {
+		t.Error(".env was written — editing is not applying")
+	}
+}
+
+func TestBrowseEnterStillApplies(t *testing.T) {
+	h := newHarness(t)
+	h.app.pickerInjected = true
+
+	repoDir := h.repoDir(t, "auth")
+	h.run(t, "init", "k")
+	h.run(t, "add-repo", "k", "auth", "--path", repoDir)
+	h.run(t, "add-workflow", "k", "local", "--repos", "auth")
+	h.run(t, "var", "k", "auth", "PORT=4000")
+
+	// Both are set, as the real command tree sets them.
+	h.app.PickOne = func(string, string, []tui.Option) (string, error) { return "local", nil }
+	h.app.PickAction = func(string, string, []tui.Option, bool) (string, tui.PickAction, error) {
+		return "local", tui.ActionSelect, nil
+	}
+
+	if err := h.run(t, "pick", "k"); err != nil {
+		t.Fatalf("browse: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(repoDir, ".env")); err != nil {
+		t.Errorf("env file missing: %v — ⏎ must still apply", err)
+	}
+}

@@ -86,13 +86,22 @@ func previewWorkflow(app *App, g store.Group, wf store.Workflow) error {
 	}
 
 	col := style.WidthOf(repoNames(repos))
-	failed, changed := 0, 0
+	failed, changed, empty := 0, 0, 0
 
 	for _, repo := range repos {
-		diff, err := previewRepo(app, g, wf, repo)
+		expected, diff, err := previewRepo(app, g, wf, repo)
 		if err != nil {
 			failed++
 			app.row(col, style.Fail, repo.Name, err.Error())
+			continue
+		}
+
+		// Checked before the diff: a repo that is already empty matches an
+		// empty expectation, so "up to date" would be true and useless. The
+		// gap is the thing a dry run before prod is being asked about.
+		if len(expected) == 0 {
+			empty++
+			app.row(col, style.Warn, repo.Name, "no variables for "+wf.Name)
 			continue
 		}
 
@@ -115,14 +124,20 @@ func previewWorkflow(app *App, g store.Group, wf store.Workflow) error {
 	}
 
 	app.blank()
+	if empty > 0 {
+		app.hint("%s covered but empty — check they belong in %s, or give them variables",
+			plural(empty, "repo"), wf.Name)
+	}
 	if failed > 0 {
 		return fmt.Errorf("%d of %d repo(s) would fail", failed, len(repos))
 	}
-	if changed == 0 {
+	if changed == 0 && empty == 0 {
 		app.hint("nothing to do — every repo already matches %s", wf.Name)
 		return nil
 	}
-	app.hint("dry run — nothing was written; drop --dry-run to apply")
+	if changed > 0 {
+		app.hint("dry run — nothing was written; drop --dry-run to apply")
+	}
 	return nil
 }
 
@@ -132,22 +147,22 @@ func previewWorkflow(app *App, g store.Group, wf store.Workflow) error {
 // repo as "not applied" so a `status` listing still finishes, which is right
 // there and wrong here. The point of a dry run is to find out that a repo
 // would fail *before* running it for real, so the error propagates.
-func previewRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo) (sharedfile.Diff, error) {
+func previewRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo) (map[string]string, sharedfile.Diff, error) {
 	expected, err := buildEnv(app, wf, repo)
 	if err != nil {
-		return sharedfile.Diff{}, err
+		return nil, sharedfile.Diff{}, err
 	}
 
 	onDisk, err := readAppliedEnv(repo)
 	if err != nil {
 		// No file yet is not a failure: every key is simply an addition.
 		if !os.IsNotExist(errors.Unwrap(err)) {
-			return sharedfile.Diff{}, err
+			return nil, sharedfile.Diff{}, err
 		}
 		onDisk = map[string]string{}
 	}
 
-	return sharedfile.Compare(expected, onDisk), nil
+	return expected, sharedfile.Compare(expected, onDisk), nil
 }
 
 // previewSummary counts the moves rather than repeating them, since the
@@ -203,11 +218,23 @@ func applyWorkflow(app *App, g store.Group, wf store.Workflow) error {
 
 	col := style.WidthOf(repoNames(repos))
 
-	failed := 0
+	failed, empty := 0, 0
 	for _, repo := range repos {
-		if err := applyRepo(app, g, wf, repo); err != nil {
+		written, err := applyRepo(app, g, wf, repo)
+		if err != nil {
 			failed++
 			app.row(col, style.Fail, repo.Name, err.Error())
+			continue
+		}
+
+		// A repo covered by a workflow but holding no variables for it is
+		// almost always an oversight, and writing an empty file under a green
+		// tick is how that oversight survives to production. Warn, but keep
+		// going: the other repos are still correct, and blocking on it would
+		// make the tick the thing people learn to bypass.
+		if written == 0 {
+			empty++
+			app.row(col, style.Warn, repo.Name, "no variables for "+wf.Name)
 			continue
 		}
 		app.row(col, style.OK, repo.Name, "set ("+wf.Name+")")
@@ -221,6 +248,12 @@ func applyWorkflow(app *App, g store.Group, wf store.Workflow) error {
 		// database for a set of repos that failed to configure would leave
 		// the two halves disagreeing about what is running.
 		return fmt.Errorf("%d of %d repo(s) failed", failed, len(repos))
+	}
+
+	if empty > 0 {
+		app.blank()
+		app.hint("%s covered but empty — check they belong in %s, or give them variables",
+			plural(empty, "repo"), wf.Name)
 	}
 
 	bringUp(app, g, wf)
@@ -250,26 +283,26 @@ func buildEnv(app *App, wf store.Workflow, repo store.Repo) (map[string]string, 
 
 // applyRepo resolves, expands and writes one repo's env file. Any failure
 // leaves that repo's existing env file exactly as it was.
-func applyRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo) error {
+func applyRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo) (int, error) {
 	vars, err := buildEnv(app, wf, repo)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	content := envfile.Render(vars)
 
 	builtPath, err := config.BuiltPath(g.Name, wf.Name, repo.Name)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	res, err := apply.Apply(builtPath, content, repo.Path, repo.EnvFile, app.Now())
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if res.BackedUpTo != "" {
 		app.detail("  backed up existing %s → %s", repo.EnvFile, res.BackedUpTo)
 	}
 
-	return app.Store.RecordApplied(repo.ID, wf.ID, res.BuiltPath, app.Now())
+	return len(vars), app.Store.RecordApplied(repo.ID, wf.ID, res.BuiltPath, app.Now())
 }

@@ -325,3 +325,48 @@ func TestDryRunReportsAFailingRepoWithoutApplyingAnything(t *testing.T) {
 		t.Error(".env exists — a failed dry run must not write either")
 	}
 }
+
+func TestCoveredButEmptyRepoWarnsRatherThanTicking(t *testing.T) {
+	h := newHarness(t)
+	aDir, bDir := h.repoDir(t, "a"), h.repoDir(t, "b")
+
+	h.run(t, "init", "k")
+	h.run(t, "add-repo", "k", "a", "--path", aDir)
+	h.run(t, "add-repo", "k", "b", "--path", bDir)
+	h.run(t, "add-workflow", "k", "prod", "--repos", "a,b")
+	h.run(t, "var", "k", "a", "PORT=4000")
+
+	if err := h.run(t, "up", "k", "prod"); err != nil {
+		t.Fatalf("up = %v, want it to keep going — the gap is a warning, not a failure", err)
+	}
+
+	out := h.out.String()
+	if !strings.Contains(out, "no variables for prod") {
+		t.Errorf("output = %q, want b flagged", out)
+	}
+	if !strings.Contains(out, "set (prod)") {
+		t.Errorf("output = %q, want a still applied", out)
+	}
+}
+
+func TestDryRunFlagsAnEmptyRepoEvenWhenNothingWouldChange(t *testing.T) {
+	h := newHarness(t)
+	aDir, bDir := h.repoDir(t, "a"), h.repoDir(t, "b")
+
+	h.run(t, "init", "k")
+	h.run(t, "add-repo", "k", "a", "--path", aDir)
+	h.run(t, "add-repo", "k", "b", "--path", bDir)
+	h.run(t, "add-workflow", "k", "prod", "--repos", "a,b")
+	h.run(t, "var", "k", "a", "PORT=4000")
+	h.run(t, "up", "k", "prod")
+
+	// b's file is already empty, so it matches an empty expectation. "Already
+	// up to date" would be true and useless: the gap is what a dry run before
+	// prod is being asked about.
+	if err := h.run(t, "up", "k", "prod", "--dry-run"); err != nil {
+		t.Fatalf("dry run: %v", err)
+	}
+	if !strings.Contains(h.out.String(), "no variables for prod") {
+		t.Errorf("output = %q, want the gap flagged, not hidden behind 'up to date'", h.out.String())
+	}
+}

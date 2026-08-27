@@ -156,7 +156,7 @@ func syncRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo, yes, 
 
 	// Regenerate the file so it matches prizm exactly again — sorted, with
 	// internal values stripped and skipped edits undone.
-	if err := applyRepo(app, g, wf, repo); err != nil {
+	if _, err := applyRepo(app, g, wf, repo); err != nil {
 		return false, err
 	}
 

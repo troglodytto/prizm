@@ -68,7 +68,7 @@ func browse(app *App, groupName string) error {
 		return err
 	}
 
-	workflow, err := pickWorkflow(app, g)
+	workflow, action, err := pickWorkflow(app, g)
 	if err != nil {
 		return quietCancel(err)
 	}
@@ -80,7 +80,56 @@ func browse(app *App, groupName string) error {
 	if err != nil {
 		return fmt.Errorf("no such workflow %q in group %s", workflow, g.Name)
 	}
+
+	if action == tui.ActionEdit {
+		return browseEdit(app, g, wf)
+	}
 	return applyWorkflow(app, g, wf)
+}
+
+// browseEdit drills one step further — which repo — and hands off to the same
+// editing path `prizm edit` uses. Two entry points, one implementation: an
+// editor flow that diverged from the command would be the more surprising of
+// the two, since only one of them gets exercised daily.
+func browseEdit(app *App, g store.Group, wf store.Workflow) error {
+	repos, err := app.Store.WorkflowRepos(wf.ID)
+	if err != nil {
+		return err
+	}
+	if len(repos) == 0 {
+		app.hint("%s covers no repos — nothing to edit", wf.Name)
+		return nil
+	}
+
+	options := make([]tui.Option, 0, len(repos))
+	for _, r := range repos {
+		vars, err := app.Store.WorkflowRepoVars(wf.ID, r.ID)
+		if err != nil {
+			return err
+		}
+		options = append(options, tui.Option{
+			Value: r.Name,
+			Label: r.Name,
+			// Naming the gap is the point: a repo with nothing of its own for
+			// this workflow is exactly the one worth opening.
+			Desc: plural(len(vars), "variable") + " for " + wf.Name,
+		})
+	}
+
+	name, err := app.PickOne("Edit which repo", g.Name+"/"+wf.Name, options)
+	if err != nil {
+		return quietCancel(err)
+	}
+	if name == "" {
+		return nil
+	}
+
+	repo, err := app.Store.RepoByName(g.ID, name)
+	if err != nil {
+		return err
+	}
+	return editScope(app, store.WorkflowRepoScope(wf.ID, repo.ID),
+		g.Name+"/"+repo.Name+" · "+wf.Name)
 }
 
 func pickGroup(app *App) (string, error) {
@@ -121,24 +170,24 @@ func pickGroup(app *App) (string, error) {
 	return app.PickOne("Select a group", "", options)
 }
 
-func pickWorkflow(app *App, g store.Group) (string, error) {
+func pickWorkflow(app *App, g store.Group) (string, tui.PickAction, error) {
 	workflows, err := app.Store.ListWorkflows(g.ID)
 	if err != nil {
-		return "", err
+		return "", tui.ActionNone, err
 	}
 	if len(workflows) == 0 {
 		app.hint("%s has no workflows — run `prizm add-workflow %s <name>`", g.Name, g.Name)
-		return "", nil
+		return "", tui.ActionNone, nil
 	}
 	if !app.canPick() {
-		return "", listGroup(app, g.Name)
+		return "", tui.ActionNone, listGroup(app, g.Name)
 	}
 
 	options := make([]tui.Option, 0, len(workflows))
 	for _, w := range workflows {
 		repos, err := app.Store.WorkflowRepos(w.ID)
 		if err != nil {
-			return "", err
+			return "", tui.ActionNone, err
 		}
 		names := make([]string, 0, len(repos))
 		for _, r := range repos {
@@ -152,7 +201,11 @@ func pickWorkflow(app *App, g store.Group) (string, error) {
 			Tag:   w.Tag,
 		})
 	}
-	return app.PickOne("Select a workflow", g.Name, options)
+	if app.PickAction == nil {
+		name, err := app.PickOne("Select a workflow", g.Name, options)
+		return name, tui.ActionSelect, err
+	}
+	return app.PickAction("Select a workflow", g.Name, options, true)
 }
 
 // chooseRepos resolves which repos a workflow or bag covers.

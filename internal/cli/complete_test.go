@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -173,11 +175,43 @@ func TestCompletionStopsAfterTheLastSlot(t *testing.T) {
 	}
 }
 
-func contains(haystack []string, needle string) bool {
-	for _, h := range haystack {
-		if h == needle {
-			return true
-		}
+func TestServiceCompletionReadsTheComposeFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "stack.yml")
+	yaml := "version: '3'\n" +
+		"services:\n" +
+		"  db:\n" +
+		"    image: postgres\n" +
+		"    ports: ['5432:5432']\n" +
+		"  cache:\n" +
+		"    image: redis\n" +
+		"volumes:\n" +
+		"  data: {}\n"
+	if err := os.WriteFile(path, []byte(yaml), 0o600); err != nil {
+		t.Fatalf("writing compose file: %v", err)
 	}
-	return false
+
+	got, _ := completeServices(path, "")
+	if len(got) != 2 || got[0] != "db" || got[1] != "cache" {
+		t.Errorf("services = %v, want [db cache] — image/ports are settings, volumes is another block", got)
+	}
+}
+
+func TestServiceCompletionKeepsWhatIsAlreadyTyped(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "stack.yml")
+	if err := os.WriteFile(path, []byte("services:\n  db:\n  cache:\n"), 0o600); err != nil {
+		t.Fatalf("writing compose file: %v", err)
+	}
+
+	// The shell replaces the whole word, so an earlier choice must come back
+	// with each candidate or it is silently dropped.
+	got, _ := completeServices(path, "db,")
+	if len(got) != 1 || got[0] != "db,cache" {
+		t.Errorf("services = %v, want [db,cache]", got)
+	}
+}
+
+func TestServiceCompletionSurvivesAMissingFile(t *testing.T) {
+	if got, _ := completeServices("/nope/stack.yml", ""); got != nil {
+		t.Errorf("services = %v, want none rather than a crash", got)
+	}
 }
