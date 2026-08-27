@@ -119,7 +119,7 @@ func (c Column) Row(m Mark, name, detail string) string {
 
 // Field is a Row without a mark, for listings that are not outcomes.
 func (c Column) Field(name, detail string) string {
-	return "  " + pad(name, int(c)) + " " + detailStyle.Render(detail)
+	return "    " + pad(name, int(c)) + " " + detailStyle.Render(detail)
 }
 
 // Row renders at the default width, for one-off lines with nothing to align to.
