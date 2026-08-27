@@ -3,6 +3,8 @@ package style
 import (
 	"strings"
 	"testing"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 func TestMarkGlyphs(t *testing.T) {
@@ -50,8 +52,36 @@ func TestRowAlignsTheDetailColumn(t *testing.T) {
 	}
 }
 
+// A name wider than the default must widen the column for every row, not go
+// ragged — the reason Column is measured rather than fixed.
+func TestMeasuredColumnAlignsLongNames(t *testing.T) {
+	names := []string{"ai", "auth", "search-svc", "web-frontend"}
+	c := WidthOf(names)
+
+	if int(c) != len("search-svc") {
+		t.Errorf("WidthOf() = %d, want the widest name (%d)", c, len("search-svc"))
+	}
+
+	first := c.Row(OK, names[0], "set (local)")
+	for _, n := range names[1:] {
+		row := c.Row(OK, n, "set (local)")
+		if strings.Index(first, "set (local)") != strings.Index(row, "set (local)") {
+			t.Errorf("details misaligned between %q and %q:\n%q\n%q", names[0], n, first, row)
+		}
+	}
+}
+
+func TestWidthOfNeverGoesBelowTheMinimum(t *testing.T) {
+	if got := WidthOf([]string{"a", "bc"}); int(got) != MinWidth {
+		t.Errorf("WidthOf(short names) = %d, want the %d minimum", got, MinWidth)
+	}
+	if got := WidthOf(nil); int(got) != MinWidth {
+		t.Errorf("WidthOf(nil) = %d, want the %d minimum", got, MinWidth)
+	}
+}
+
 func TestRowDoesNotTruncateALongName(t *testing.T) {
-	name := strings.Repeat("x", NameWidth+8)
+	name := strings.Repeat("x", MinWidth+8)
 
 	if got := Row(OK, name, "detail"); !strings.Contains(got, name) {
 		t.Errorf("Row() = %q, want the full name %q", got, name)
@@ -72,8 +102,8 @@ func TestTagColoursAreSemanticAndDistinct(t *testing.T) {
 	if prod == qa || qa == local || prod == local {
 		t.Error("tag colours collide; prod must never look like local")
 	}
-	if TagColor("something-custom") != TagColor("") {
-		t.Error("an unknown tag should render like an untagged one")
+	if TagColor("something-custom") != nil {
+		t.Error("an unknown tag should have no colour of its own")
 	}
 }
 
@@ -83,6 +113,26 @@ func TestTagRendersTheTagText(t *testing.T) {
 	}
 	if got := Tag(""); got != "" {
 		t.Errorf("Tag(\"\") = %q, want empty", got)
+	}
+	if got := Tag("something-custom"); !strings.Contains(got, "something-custom") {
+		t.Errorf("Tag(unknown) = %q, want the text rendered plainly", got)
+	}
+}
+
+// Colour comes from the terminal's own palette, never a fixed hex value, so
+// prizm inherits whatever scheme the user already reads comfortably.
+func TestPaletteUsesTerminalColoursNotHex(t *testing.T) {
+	for name, c := range map[string]lipgloss.TerminalColor{
+		"Red": Red, "Green": Green, "Yellow": Yellow, "Cyan": Cyan, "Base": Base,
+	} {
+		v, ok := c.(lipgloss.Color)
+		if !ok {
+			t.Errorf("%s is %T, want lipgloss.Color (an ANSI index)", name, c)
+			continue
+		}
+		if strings.HasPrefix(string(v), "#") {
+			t.Errorf("%s = %q, want an ANSI index rather than a hex value", name, v)
+		}
 	}
 }
 

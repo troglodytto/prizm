@@ -70,14 +70,20 @@ func applyWorkflow(app *App, g store.Group, wf store.Workflow) error {
 		return nil
 	}
 
+	names := make([]string, 0, len(repos))
+	for _, r := range repos {
+		names = append(names, r.Name)
+	}
+	col := style.WidthOf(names)
+
 	failed := 0
 	for _, repo := range repos {
 		if err := applyRepo(app, g, wf, repo); err != nil {
 			failed++
-			fmt.Fprintln(app.Out, style.Row(style.Fail, repo.Name, err.Error()))
+			fmt.Fprintln(app.Out, col.Row(style.Fail, repo.Name, err.Error()))
 			continue
 		}
-		fmt.Fprintln(app.Out, style.Row(style.OK, repo.Name, "set ("+wf.Name+")"))
+		fmt.Fprintln(app.Out, col.Row(style.OK, repo.Name, "set ("+wf.Name+")"))
 	}
 
 	if err := app.Store.TouchGroup(g.ID, app.Now()); err != nil {

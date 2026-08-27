@@ -1,9 +1,13 @@
-// Package style is prizm's single source of visual language. Every user-facing
-// line — plain text from the CLI, rendered screens from the TUI — uses these
-// glyphs, colours and widths, so the tool looks like one tool.
+// Package style is prizm's single source of visual language. Every
+// user-facing line — plain text from the CLI, rendered screens from the TUI —
+// uses these glyphs, colours and widths, so the tool looks like one tool.
 //
-// Lip Gloss disables colour automatically when the output is not a terminal
-// and honours NO_COLOR, so piped output and tests see plain text.
+// Colour is drawn from the terminal's own 16-colour palette rather than fixed
+// hex values. A user has already chosen colours they can read; a tool that
+// hardcodes its own fights that choice, and looks wrong in every scheme but
+// the one it was designed against. It also means prizm degrades correctly on
+// a 16-colour terminal, and Lip Gloss drops colour entirely when the output
+// is not a terminal or NO_COLOR is set.
 package style
 
 import (
@@ -12,32 +16,34 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// The palette. Exported so the TUI theme extends it rather than inventing a
-// second set of colours.
+// The palette, as ANSI indices. Colour is spent on one thing — outcome — and
+// everything else is carried by weight and dimming, so nothing competes with
+// a red for attention.
 var (
-	Accent  = lipgloss.AdaptiveColor{Light: "#5A189A", Dark: "#C77DFF"}
-	Success = lipgloss.AdaptiveColor{Light: "#1B4332", Dark: "#95D5B2"}
-	Danger  = lipgloss.AdaptiveColor{Light: "#9D0208", Dark: "#FF758F"}
-	Caution = lipgloss.AdaptiveColor{Light: "#7F5539", Dark: "#E9C46A"}
-	Neutral = lipgloss.AdaptiveColor{Light: "#6C757D", Dark: "#6C757D"}
+	Red    = lipgloss.Color("1")
+	Green  = lipgloss.Color("2")
+	Yellow = lipgloss.Color("3")
+	Cyan   = lipgloss.Color("6")
+	Base   = lipgloss.Color("0") // for text on an inverted badge
 )
 
-// NameWidth is the column every status line aligns its subject in.
-const NameWidth = 14
+// MinWidth is the narrowest a name column gets. Wider names push it out.
+const MinWidth = 12
 
 var (
-	headingStyle = lipgloss.NewStyle().Bold(true).Foreground(Accent)
+	// A heading is bold and uncoloured: it is structure, not status.
+	headingStyle = lipgloss.NewStyle().Bold(true)
 	detailStyle  = lipgloss.NewStyle().Faint(true)
-	hintStyle    = lipgloss.NewStyle().Faint(true)
-	dangerStyle  = lipgloss.NewStyle().Bold(true).Foreground(Danger)
+	hintStyle    = lipgloss.NewStyle().Faint(true).Italic(true)
+	alertStyle   = lipgloss.NewStyle().Bold(true).Foreground(Red)
 
-	okStyle      = lipgloss.NewStyle().Foreground(Success)
-	failStyle    = lipgloss.NewStyle().Bold(true).Foreground(Danger)
-	warnStyle    = lipgloss.NewStyle().Foreground(Caution)
-	changeStyle  = lipgloss.NewStyle().Foreground(Caution)
-	addStyle     = lipgloss.NewStyle().Foreground(Success)
-	removeStyle  = lipgloss.NewStyle().Foreground(Danger)
-	neutralStyle = lipgloss.NewStyle()
+	okStyle     = lipgloss.NewStyle().Foreground(Green)
+	failStyle   = lipgloss.NewStyle().Bold(true).Foreground(Red)
+	warnStyle   = lipgloss.NewStyle().Foreground(Yellow)
+	addStyle    = lipgloss.NewStyle().Foreground(Green)
+	removeStyle = lipgloss.NewStyle().Foreground(Red)
+	changeStyle = lipgloss.NewStyle().Foreground(Yellow)
+	plainStyle  = lipgloss.NewStyle()
 )
 
 // Mark is the leading glyph on a status line.
@@ -78,27 +84,54 @@ func (m Mark) Glyph() string {
 	case Change:
 		return changeStyle.Render("~")
 	case Same:
-		return neutralStyle.Render("=")
+		return plainStyle.Render("=")
 	case Ask:
 		return warnStyle.Render("?")
 	}
 	return " "
 }
 
-// Row is the standard status line: a mark, a subject padded to NameWidth, and
-// a dim detail. A name longer than the column pushes the detail rather than
-// being truncated — a silently cut repo name is worse than a ragged line.
-func Row(m Mark, name, detail string) string {
-	padded := name
-	if pad := NameWidth - lipgloss.Width(name); pad > 0 {
-		padded += strings.Repeat(" ", pad)
-	}
+// Column is a measured name-column width. Take one with WidthOf so a long
+// name like "search-svc" widens the column instead of pushing every
+// other row's detail out of alignment.
+type Column int
 
-	line := m.Glyph() + " " + padded
+// WidthOf measures the widest name, never going below MinWidth.
+func WidthOf(names []string) Column {
+	w := MinWidth
+	for _, n := range names {
+		if n := lipgloss.Width(n); n > w {
+			w = n
+		}
+	}
+	return Column(w)
+}
+
+// Row is the standard status line: a mark, a name padded to the column, and
+// a dim detail.
+func (c Column) Row(m Mark, name, detail string) string {
+	line := m.Glyph() + " " + pad(name, int(c))
 	if detail == "" {
 		return strings.TrimRight(line, " ")
 	}
 	return line + " " + detailStyle.Render(detail)
+}
+
+// Field is a Row without a mark, for listings that are not outcomes.
+func (c Column) Field(name, detail string) string {
+	return "  " + pad(name, int(c)) + " " + detailStyle.Render(detail)
+}
+
+// Row renders at the default width, for one-off lines with nothing to align to.
+func Row(m Mark, name, detail string) string {
+	return Column(MinWidth).Row(m, name, detail)
+}
+
+func pad(s string, n int) string {
+	if fill := n - lipgloss.Width(s); fill > 0 {
+		return s + strings.Repeat(" ", fill)
+	}
+	return s
 }
 
 // Heading names a group or a section.
@@ -111,28 +144,37 @@ func Detail(s string) string { return detailStyle.Render(s) }
 func Hint(s string) string { return hintStyle.Render(s) }
 
 // Alert is for text that should stop someone.
-func Alert(s string) string { return dangerStyle.Render(s) }
+func Alert(s string) string { return alertStyle.Render(s) }
 
-// tagColors is the semantic palette. Red means production everywhere in prizm:
-// in a status line, in a picker badge, and in a prod confirmation.
+// tagColors maps a workflow tag to the colour of its badge.
 var tagColors = map[string]lipgloss.TerminalColor{
-	"prod":  Danger,
-	"qa":    Caution,
-	"local": Success,
+	"prod":  Red,
+	"qa":    Yellow,
+	"local": Cyan,
 }
 
-// TagColor returns a tag's colour. Unknown and empty tags share the neutral one.
+// TagColor returns a tag's colour, or nil for an unknown or empty tag.
 func TagColor(tag string) lipgloss.TerminalColor {
 	if c, ok := tagColors[tag]; ok {
 		return c
 	}
-	return Neutral
+	return nil
 }
 
-// Tag renders a workflow tag, or nothing for an untagged workflow.
+// Tag renders a workflow tag as an inverted badge.
+//
+// Inversion rather than coloured text is deliberate: a tag is the one thing
+// on screen someone should be able to find without reading, and a filled
+// block survives a colour scheme that mangles hues in a way that coloured
+// text does not.
 func Tag(tag string) string {
 	if tag == "" {
 		return ""
 	}
-	return lipgloss.NewStyle().Foreground(TagColor(tag)).Render(tag)
+
+	c := TagColor(tag)
+	if c == nil {
+		return detailStyle.Render(tag)
+	}
+	return lipgloss.NewStyle().Bold(true).Foreground(Base).Background(c).Render(" " + tag + " ")
 }

@@ -70,11 +70,20 @@ func listGroup(app *App, name string) error {
 		return err
 	}
 
+	names := make([]string, 0, len(repos)+len(workflows))
+	for _, r := range repos {
+		names = append(names, r.Name)
+	}
+	for _, w := range workflows {
+		names = append(names, w.Name)
+	}
+	col := style.WidthOf(names)
+
 	fmt.Fprintln(app.Out, style.Heading(g.Name))
 
 	fmt.Fprintln(app.Out, "  repos:")
 	for _, r := range repos {
-		fmt.Fprintf(app.Out, "    %-*s %s\n", style.NameWidth, r.Name, style.Detail(r.Path))
+		fmt.Fprintln(app.Out, col.Field(r.Name, r.Path))
 	}
 
 	fmt.Fprintln(app.Out, "  workflows:")
@@ -83,16 +92,16 @@ func listGroup(app *App, name string) error {
 		if err != nil {
 			return err
 		}
-		names := make([]string, 0, len(members))
+		memberNames := make([]string, 0, len(members))
 		for _, m := range members {
-			names = append(names, m.Name)
+			memberNames = append(memberNames, m.Name)
 		}
 
 		tag := ""
 		if w.Tag != "" {
 			tag = "  " + style.Tag(w.Tag)
 		}
-		fmt.Fprintf(app.Out, "    %-*s %s%s\n", style.NameWidth, w.Name, style.Detail(joinOrNone(names)), tag)
+		fmt.Fprintln(app.Out, col.Field(w.Name, joinOrNone(memberNames))+tag)
 	}
 	return nil
 }
