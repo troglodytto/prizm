@@ -27,8 +27,13 @@ var (
 	Base   = lipgloss.Color("0") // for text on an inverted badge
 )
 
-// MinWidth is the narrowest a name column gets. Wider names push it out.
-const MinWidth = 12
+// MinWidth is the narrowest a name column gets; wider names push it out.
+//
+// It is 16 because separate invocations cannot align with each other — five
+// `add-repo` calls are five processes — and a session's worth of one-off
+// lines should still read as a column. Most repo names fit; longer ones
+// widen their own line rather than being cut.
+const MinWidth = 16
 
 var (
 	// A heading is bold and uncoloured: it is structure, not status.
