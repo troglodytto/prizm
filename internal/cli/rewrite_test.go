@@ -9,7 +9,7 @@ import (
 func testResolver() Resolver {
 	commands := map[string]bool{
 		"init": true, "add-repo": true, "add-workflow": true,
-		"up": true, "ls": true, "var": true, "import": true,
+		"up": true, "ls": true, "browse": true, "var": true, "import": true,
 		"completion": true, "help": true, "__complete": true,
 	}
 	groups := map[string]bool{"XYZ": true, "ABC": true}
@@ -33,7 +33,7 @@ func TestRewrite(t *testing.T) {
 		{name: "registration command untouched", in: []string{"init", "NEW"}, want: []string{"init", "NEW"}},
 		{name: "group then verb", in: []string{"XYZ", "up", "local"}, want: []string{"up", "XYZ", "local"}},
 		{name: "group then workflow implies up", in: []string{"XYZ", "local"}, want: []string{"up", "XYZ", "local"}},
-		{name: "group alone lists", in: []string{"XYZ"}, want: []string{"ls", "XYZ"}},
+		{name: "group alone browses", in: []string{"XYZ"}, want: []string{"browse", "XYZ"}},
 		{name: "group then verb with args", in: []string{"XYZ", "var", "backend", "A=1"}, want: []string{"var", "XYZ", "backend", "A=1"}},
 		{name: "group then workflow with flags", in: []string{"XYZ", "local", "--dry-run"}, want: []string{"up", "XYZ", "local", "--dry-run"}},
 		{name: "unknown first word untouched", in: []string{"typo", "local"}, want: []string{"typo", "local"}},

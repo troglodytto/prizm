@@ -28,9 +28,10 @@ func newAddWorkflowCmd(app *App) *cobra.Command {
 				return err
 			}
 
-			repoIDs, err := resolveRepoIDs(app, g, repoList)
+			repoIDs, err := chooseRepos(app, g, repoList,
+				fmt.Sprintf("Repos covered by %s/%s", g.Name, args[1]))
 			if err != nil {
-				return err
+				return quietUserCancel(app, err)
 			}
 
 			wf, err := app.Store.AddWorkflow(g.ID, args[1], tag, repoIDs)

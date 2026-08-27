@@ -91,3 +91,48 @@ func (a *App) locate() (store.Repo, store.Group, error) {
 	}
 	return repo, g, nil
 }
+
+// Some commands take a trailing list whose members are bare words —
+// `prizm unset <group> <repo> KEY KEY` — so a positional count cannot tell a
+// group name from a key. These resolve by lookup instead: consume a leading
+// argument only if it actually names a group or a repo.
+
+// splitGroupByLookup consumes a leading group name if there is one, otherwise
+// infers the group from the current directory.
+func (a *App) splitGroupByLookup(args []string) (store.Group, []string, error) {
+	if len(args) > 1 {
+		if g, err := a.Store.GroupByName(args[0]); err == nil {
+			return g, args[1:], nil
+		}
+	}
+
+	_, g, err := a.locate()
+	if err != nil {
+		return store.Group{}, nil, err
+	}
+	return g, args, nil
+}
+
+// splitGroupRepoByLookup consumes a leading group and repo name if present.
+func (a *App) splitGroupRepoByLookup(args []string) (store.Group, store.Repo, []string, error) {
+	g, rest, err := a.splitGroupByLookup(args)
+	if err != nil {
+		return store.Group{}, store.Repo{}, nil, err
+	}
+
+	if len(rest) > 1 {
+		if repo, err := a.Store.RepoByName(g.ID, rest[0]); err == nil {
+			return g, repo, rest[1:], nil
+		}
+	}
+
+	repo, located, err := a.locate()
+	if err != nil {
+		return store.Group{}, store.Repo{}, nil, err
+	}
+	if located.ID != g.ID {
+		return store.Group{}, store.Repo{}, nil, errUsage(
+			"you are standing in %s, not %s — name the repo explicitly", located.Name, g.Name)
+	}
+	return g, repo, rest, nil
+}

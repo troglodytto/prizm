@@ -16,6 +16,7 @@ import (
 	"github.com/troglodytto/prizm/internal/config"
 	"github.com/troglodytto/prizm/internal/crypto"
 	"github.com/troglodytto/prizm/internal/store"
+	"github.com/troglodytto/prizm/internal/tui"
 )
 
 // App carries everything the commands need. The clock and cwd are injected so
@@ -27,6 +28,14 @@ type App struct {
 	Now     func() time.Time
 	Cwd     func() (string, error)
 	Confirm func(prompt string) (bool, error)
+
+	// Interactive surfaces. Injectable so every path is testable without a
+	// terminal; pickerInjected is the test-only escape hatch and must never
+	// be settable from a flag or the environment.
+	PickOne  func(title string, options []tui.Option) (string, error)
+	PickMany func(title string, options []tui.Option, preselected []string) ([]string, error)
+
+	pickerInjected bool
 }
 
 // NewRootCmd builds the whole command tree.
@@ -51,6 +60,9 @@ func NewRootCmd(app *App) *cobra.Command {
 			if len(args) > 0 {
 				return errUsage("unknown command or group %q", args[0])
 			}
+			if app.canPick() {
+				return browse(app, "")
+			}
 			return cmd.Help()
 		},
 	}
@@ -58,6 +70,14 @@ func NewRootCmd(app *App) *cobra.Command {
 	root.SetOut(app.Out)
 	root.SetErr(app.Err)
 	registerHelpStyling(root)
+
+	var noTUI bool
+	root.PersistentFlags().BoolVar(&noTUI, "no-tui", false, "never show interactive prompts")
+	root.PersistentPreRun = func(*cobra.Command, []string) {
+		if noTUI {
+			tui.Disable()
+		}
+	}
 
 	// A wrong flag is a usage problem, so it should show help too.
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
@@ -69,9 +89,15 @@ func NewRootCmd(app *App) *cobra.Command {
 		newAddRepoCmd(app),
 		newAddWorkflowCmd(app),
 		newLsCmd(app),
+		newBrowseCmd(app),
 		newVarCmd(app),
 		newImportCmd(app),
 		newUpCmd(app),
+		newStatusCmd(app),
+		newRepairCmd(app),
+		newRenameCmd(app),
+		newRemoveCmd(app),
+		newUnsetCmd(app),
 		newGlobalCmd(app),
 		newSharedAddCmd(app),
 		newSharedEditCmd(app),
@@ -109,6 +135,8 @@ func Execute() int {
 
 	app := &App{Store: s, Out: os.Stdout, Err: os.Stderr, Now: time.Now, Cwd: os.Getwd}
 	app.Confirm = confirmOnStdin(app.Out)
+	app.PickOne = tui.PickOne
+	app.PickMany = tui.PickMany
 
 	root := NewRootCmd(app)
 	root.SetArgs(rewriteArgs(app, root, os.Args[1:]))

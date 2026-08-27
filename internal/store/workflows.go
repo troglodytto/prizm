@@ -22,7 +22,7 @@ var reservedNames = map[string]bool{
 	"import": true, "edit": true, "sync": true, "audit": true,
 	"docker": true, "docker-add": true, "docker-ls": true, "repair": true,
 	"shared-add": true, "shared-edit": true, "shared-ls": true, "shared-sync": true,
-	"global": true, "completion": true, "help": true, "version": true,
+	"global": true, "browse": true, "rename": true, "rm": true, "remove": true, "unset": true, "completion": true, "help": true, "version": true,
 }
 
 // IsReservedName reports whether name may not be used as a workflow name.

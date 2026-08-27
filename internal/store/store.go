@@ -184,3 +184,38 @@ func (s *Store) RecordApplied(repoID, workflowID int64, builtPath string, now ti
 		repoID, workflowID, builtPath, now.Unix())
 	return err
 }
+
+// Applied records which workflow a repo is currently linked to.
+type Applied struct {
+	RepoID     int64
+	WorkflowID int64
+	BuiltPath  string
+	AppliedAt  time.Time
+}
+
+// AppliedFor returns the applied state of every repo in a group, keyed by repo ID.
+func (s *Store) AppliedFor(groupID int64) (map[int64]Applied, error) {
+	rows, err := s.db.Query(`
+		SELECT a.repo_id, a.workflow_id, a.built_path, a.applied_at
+		FROM applied a
+		JOIN repos r ON r.id = a.repo_id
+		WHERE r.group_id = ?`, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make(map[int64]Applied)
+	for rows.Next() {
+		var (
+			a       Applied
+			applied int64
+		)
+		if err := rows.Scan(&a.RepoID, &a.WorkflowID, &a.BuiltPath, &applied); err != nil {
+			return nil, err
+		}
+		a.AppliedAt = time.Unix(applied, 0)
+		out[a.RepoID] = a
+	}
+	return out, rows.Err()
+}

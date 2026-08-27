@@ -40,9 +40,10 @@ func newSharedAddCmd(app *App) *cobra.Command {
 			}
 			name := rest[1]
 
-			repoIDs, err := resolveRepoIDs(app, g, repoList)
+			repoIDs, err := chooseRepos(app, g, repoList,
+				fmt.Sprintf("Repos in shared bag %s/%s/%s", g.Name, wf.Name, name))
 			if err != nil {
-				return err
+				return quietUserCancel(app, err)
 			}
 
 			path, err := bagPath(app, g.Name, wf.Name, name, file)
