@@ -266,9 +266,9 @@ func describe(item syncplan.Item) string {
 	case item.Action == syncplan.DeleteFromOwningLayer:
 		return "removed from the file · " + item.Origin.Layer
 	case item.From == "":
-		return "added · " + item.To
+		return "added · " + style.Secret(item.Key, item.To)
 	default:
-		return item.From + " → " + item.To
+		return style.Secret(item.Key, item.From) + " → " + style.Secret(item.Key, item.To)
 	}
 }
 

@@ -199,11 +199,13 @@ func diffVars(then, live map[string]string) []tui.Change {
 		is, hasNow := live[key]
 		switch {
 		case hadThen && !hasNow:
-			out = append(out, tui.Change{Key: key, Mark: '+', From: was})
+			out = append(out, tui.Change{Key: key, Mark: '+', From: style.Secret(key, was)})
 		case !hadThen && hasNow:
-			out = append(out, tui.Change{Key: key, Mark: '-', To: is})
+			out = append(out, tui.Change{Key: key, Mark: '-', To: style.Secret(key, is)})
 		case was != is:
-			out = append(out, tui.Change{Key: key, Mark: '~', From: was, To: is})
+			out = append(out, tui.Change{
+				Key: key, Mark: '~',
+				From: style.Secret(key, was), To: style.Secret(key, is)})
 		}
 	}
 	return out

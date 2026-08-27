@@ -17,6 +17,7 @@ import (
 	"github.com/troglodytto/prizm/internal/config"
 	"github.com/troglodytto/prizm/internal/crypto"
 	"github.com/troglodytto/prizm/internal/store"
+	"github.com/troglodytto/prizm/internal/style"
 	"github.com/troglodytto/prizm/internal/tui"
 )
 
@@ -86,11 +87,16 @@ func NewRootCmd(app *App) *cobra.Command {
 	root.SetErr(app.Err)
 	registerHelpStyling(root)
 
-	var noTUI bool
+	var noTUI, showValues bool
 	root.PersistentFlags().BoolVar(&noTUI, "no-tui", false, "never show interactive prompts")
+	root.PersistentFlags().BoolVar(&showValues, "show-values", false,
+		"print secret values in diffs instead of masking them")
 	root.PersistentPreRun = func(*cobra.Command, []string) {
 		if noTUI {
 			tui.Disable()
+		}
+		if showValues {
+			style.ShowValues()
 		}
 	}
 

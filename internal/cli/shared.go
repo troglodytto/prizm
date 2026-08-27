@@ -261,7 +261,8 @@ func renderVarDiff(app *App, diff sharedfile.Diff) {
 		app.say("  " + style.Row(style.Add, key, ""))
 	}
 	for _, c := range diff.Changed {
-		app.say("  " + style.Row(style.Change, c.Key, c.From+" → "+c.To))
+		app.say("  " + style.Row(style.Change, c.Key,
+			style.Secret(c.Key, c.From)+" → "+style.Secret(c.Key, c.To)))
 	}
 	for _, key := range diff.Removed {
 		app.say("  " + style.Row(style.Remove, key, ""))

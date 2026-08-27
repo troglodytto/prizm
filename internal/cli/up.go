@@ -119,7 +119,8 @@ func previewWorkflow(app *App, g store.Group, wf store.Workflow) error {
 			app.detail("  - %s", key)
 		}
 		for _, change := range diff.Changed {
-			app.detail("  ~ %s   %s → %s", change.Key, change.From, change.To)
+			app.detail("  ~ %s   %s → %s", change.Key,
+				style.Secret(change.Key, change.From), style.Secret(change.Key, change.To))
 		}
 	}
 
