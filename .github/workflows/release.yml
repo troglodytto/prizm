@@ -31,7 +31,11 @@ jobs:
           - {goos: linux,  goarch: amd64, runner: ubuntu-latest}
           - {goos: linux,  goarch: arm64, runner: ubuntu-24.04-arm}
           - {goos: darwin, goarch: arm64, runner: macos-14}
-          - {goos: darwin, goarch: amd64, runner: macos-13}
+          # Cross-built on the arm64 runner rather than asking for an Intel
+          # one. GitHub retired macos-13 and the surviving Intel labels keep
+          # moving; Xcode's clang targets x86_64 from Apple silicon, so this
+          # depends on nothing but the toolchain already installed.
+          - {goos: darwin, goarch: amd64, runner: macos-14, cc: "clang -arch x86_64"}
 
     steps:
       - uses: actions/checkout@v7
@@ -66,9 +70,19 @@ jobs:
           if [ "${{ matrix.goos }}" = "linux" ]; then
             export CC=musl-gcc
             ldflags="${ldflags} -linkmode external -extldflags -static"
+          elif [ -n "${{ matrix.cc }}" ]; then
+            export CC="${{ matrix.cc }}"
           fi
 
           go build -trimpath -tags "${tags}" -ldflags "${ldflags}" -o prizm .
+
+          # A cross-build that silently produced the host architecture would
+          # ship a binary that cannot start on the machine it is named for.
+          file prizm
+          case "${{ matrix.goarch }}" in
+            amd64) file prizm | grep -q "x86_64" || exit 1 ;;
+            arm64) file prizm | grep -qE "arm64|aarch64" || exit 1 ;;
+          esac
 
       - name: Verify the binary runs
         # Only where the runner can execute what it just built. A release that
