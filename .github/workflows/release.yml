@@ -1,0 +1,136 @@
+# Builds a binary for every supported platform and attaches it to the GitHub
+# release for the tag that triggered the run.
+#
+# Storage is SQLite through cgo, so nothing here can be cross-compiled from a
+# single runner: each OS builds on its own. Linux links statically against
+# musl so one binary runs on any distro — a glibc-linked build carries the
+# glibc floor of whatever runner produced it, which silently excludes anyone
+# on an older LTS.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build and release"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {goos: linux,  goarch: amd64, runner: ubuntu-latest}
+          - {goos: linux,  goarch: arm64, runner: ubuntu-24.04-arm}
+          - {goos: darwin, goarch: arm64, runner: macos-14}
+          - {goos: darwin, goarch: amd64, runner: macos-13}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install musl toolchain
+        if: matrix.goos == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "1"
+        run: |
+          set -euo pipefail
+          version="${{ inputs.tag || github.ref_name }}"
+
+          # osusergo and netgo keep os/user and DNS in pure Go;
+          # sqlite_omit_load_extension drops the dlopen SQLite would otherwise
+          # need. Without all three a static link warns that it still wants
+          # shared libc at runtime, which defeats the point.
+          tags="osusergo,netgo,sqlite_omit_load_extension"
+          ldflags="-s -w -X github.com/troglodytto/prizm/internal/cli.version=${version}"
+
+          if [ "${{ matrix.goos }}" = "linux" ]; then
+            export CC=musl-gcc
+            ldflags="${ldflags} -linkmode external -extldflags -static"
+          fi
+
+          go build -trimpath -tags "${tags}" -ldflags "${ldflags}" -o prizm .
+
+      - name: Verify the binary runs
+        # Only where the runner can execute what it just built. A release that
+        # ships a binary nobody started is worse than a failed build.
+        if: (matrix.goos == 'linux' && matrix.goarch == 'amd64') || matrix.goos == 'darwin'
+        run: |
+          set -euo pipefail
+          ./prizm --version
+          ./prizm init smoke
+          ./prizm ls | grep smoke
+        env:
+          XDG_DATA_HOME: ${{ runner.temp }}/prizm-smoke
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          version="${{ inputs.tag || github.ref_name }}"
+          name="prizm_${version}_${{ matrix.goos }}_${{ matrix.goarch }}"
+          mkdir -p "dist/${name}"
+          cp prizm LICENSE README.md "dist/${name}/"
+          tar -czf "dist/${name}.tar.gz" -C dist "${name}"
+          rm -rf "dist/${name}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prizm_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          # The release notes come from the tag's own annotation, which a
+          # shallow checkout does not fetch — without this the body is empty.
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum *.tar.gz | tee checksums.txt
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="${{ inputs.tag || github.ref_name }}"
+
+          # The tag is annotated and carries the release notes; reuse them
+          # rather than writing a second description that can disagree.
+          notes="$(git tag -l --format='%(contents)' "${version}")"
+
+          gh release create "${version}" dist/* \
+            --title "${version}" \
+            --notes "${notes:-Release ${version}}" \
+            --verify-tag

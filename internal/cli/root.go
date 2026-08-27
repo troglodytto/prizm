@@ -139,15 +139,10 @@ func commandsOf(app *App) []*cobra.Command {
 
 // Execute wires real dependencies and returns a process exit code.
 func Execute() int {
-	key, err := crypto.LoadOrCreateKey()
-	if err != nil {
-		return fail(err)
-	}
-
-	cipher, err := crypto.NewAESGCM(key)
-	if err != nil {
-		return fail(err)
-	}
+	// The keychain is opened on first use, not here: `prizm --version` on a
+	// headless box has no secret to protect and should not need somewhere to
+	// keep one.
+	cipher := crypto.FromKeyring()
 
 	dbPath, err := config.DBPath()
 	if err != nil {

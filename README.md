@@ -1,5 +1,9 @@
 # prizm
 
+[![ci](https://github.com/troglodytto/prizm/actions/workflows/ci.yml/badge.svg)](https://github.com/troglodytto/prizm/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/troglodytto/prizm?sort=semver)](https://github.com/troglodytto/prizm/releases)
+[![go reference](https://pkg.go.dev/badge/github.com/troglodytto/prizm.svg)](https://pkg.go.dev/github.com/troglodytto/prizm)
+
 Share environment files across repos, grouped by the workflow you want to run.
 
 ```bash
@@ -28,15 +32,46 @@ Copying files around doesn't fix it, because the *sets* differ. Working on the f
 
 ## Install
 
+No Go toolchain needed — this fetches a prebuilt binary into `~/.local/bin`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/troglodytto/prizm/main/install.sh | sh
+```
+
+If piping a script from the internet into a shell makes you uneasy — and it
+reasonably might — read it first, then run it:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/troglodytto/prizm/main/install.sh
+less install.sh && sh install.sh
+```
+
+It never calls sudo, and it checks every download against the release's
+published SHA-256 before unpacking. `PRIZM_INSTALL_DIR` and `PRIZM_VERSION`
+override where and what it installs.
+
+Prefer to build it yourself, or want a specific commit:
+
 ```bash
 go install github.com/troglodytto/prizm@latest
 ```
 
-Needs **Go 1.25 or newer**, and a C compiler the first time — storage is SQLite
-via cgo. Runs on **Linux and macOS**; Windows is not supported.
+That path needs **Go 1.25 or newer** and a C compiler, since storage is SQLite
+through cgo. The prebuilt Linux binaries are statically linked and need
+neither.
 
-Secrets are encrypted with a key from your OS keychain, so the first command
-that touches a value will ask the keychain for permission.
+| | |
+| --- | --- |
+| **Linux** | amd64, arm64 — static, runs on any distro |
+| **macOS** | Apple silicon and Intel |
+| **Windows** | not yet — the apply lock uses `flock`. [Open an issue](https://github.com/troglodytto/prizm/issues) if you want it |
+
+Every build is attached to a [GitHub release](https://github.com/troglodytto/prizm/releases)
+with checksums, if you would rather download by hand.
+
+Values are encrypted with a key from your OS keychain. The keychain is only
+consulted when a command actually reads or writes a value — `--version`,
+`--help`, `init` and `ls` work on a headless box with no keychain at all.
 
 ## Quickstart
 
@@ -233,6 +268,10 @@ takes over a repo that already had a real `.env`, it is renamed to
 Values are AES-256-GCM encrypted with a key held in your OS keychain; variable
 *names* stay in plaintext, which is what keeps shell completion instant. Nothing
 is sent anywhere — prizm has no network access and no account.
+
+On Linux the keychain is a Secret Service provider (gnome-keyring, KWallet), so
+a headless session may not have one. Only commands that touch a value need it,
+and the error says so if you hit it.
 
 ## Shell completion
 
