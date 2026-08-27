@@ -37,7 +37,7 @@ func TestMissingArgumentsShowThatCommandsHelp(t *testing.T) {
 			if !strings.Contains(got, tt.wantUse) {
 				t.Errorf("output missing the usage line %q:\n%s", tt.wantUse, got)
 			}
-			if !strings.Contains(got, "Flags:") {
+			if !strings.Contains(got, "FLAGS") {
 				t.Errorf("output missing the flag list — that is the part people need:\n%s", got)
 			}
 		})
@@ -104,7 +104,7 @@ func TestUnknownCommandShowsRootHelp(t *testing.T) {
 	if !strings.Contains(got, "definitely-not-a-command") {
 		t.Errorf("output = %q, want the unknown word named", got)
 	}
-	if !strings.Contains(got, "Available Commands") {
+	if !strings.Contains(got, "COMMANDS") {
 		t.Errorf("output = %q, want the command list", got)
 	}
 }
@@ -128,7 +128,7 @@ func TestRuntimeErrorsDoNotShowHelp(t *testing.T) {
 			if err := h.run(t, tt.args...); err == nil {
 				t.Fatal("error = nil, want a runtime error")
 			}
-			if got := h.help(); strings.Contains(got, "Available Commands") || strings.Contains(got, "Flags:") {
+			if got := h.help(); strings.Contains(got, "COMMANDS") || strings.Contains(got, "FLAGS") {
 				t.Errorf("a runtime error dumped help, burying the message:\n%s", got)
 			}
 		})
@@ -142,7 +142,7 @@ func TestBarePrizmShowsHelpWithoutError(t *testing.T) {
 	if err := h.run(t); err != nil {
 		t.Fatalf("bare prizm error = %v, want nil", err)
 	}
-	if got := h.help(); !strings.Contains(got, "Available Commands") {
+	if got := h.help(); !strings.Contains(got, "COMMANDS") {
 		t.Errorf("output = %q, want the help text", got)
 	}
 }

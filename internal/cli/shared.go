@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -63,10 +64,9 @@ func newSharedAddCmd(app *App) *cobra.Command {
 				return err
 			}
 
-			fmt.Fprintln(app.Out, style.Row(style.OK, name,
-				fmt.Sprintf("shared bag in %s/%s", g.Name, wf.Name)))
-			fmt.Fprintln(app.Out, style.Detail("  edit: "+path))
-			fmt.Fprintln(app.Out, style.Hint("  then: prizm shared-sync"))
+			app.result(style.OK, name, fmt.Sprintf("shared bag in %s/%s", g.Name, wf.Name))
+			app.detail("  edit: %s", path)
+			app.hint("  then: prizm shared-sync")
 			return nil
 		},
 	}
@@ -98,7 +98,7 @@ func newSharedEditCmd(app *App) *cobra.Command {
 				return fmt.Errorf("running %s: %w", editor, err)
 			}
 
-			fmt.Fprintln(app.Out, style.Hint("run `prizm shared-sync` to apply your edits"))
+			app.hint("run `prizm shared-sync` to apply your edits")
 			return nil
 		},
 	}
@@ -139,14 +139,13 @@ func newSharedLsCmd(app *App) *cobra.Command {
 					names = append(names, r.Name)
 				}
 
-				fmt.Fprintf(app.Out, "%s/%s/%s  %s\n",
-					bag.GroupName, bag.WorkflowName, style.Heading(bag.Name), style.Detail(joinOrNone(names)))
-				fmt.Fprintln(app.Out, style.Detail("  "+bag.FilePath))
+				app.sayf("%s %s", style.Heading(bag.GroupName+"/"+bag.WorkflowName+"/"+bag.Name), style.Detail(joinOrNone(names)))
+				app.detail("  %s", bag.FilePath)
 				shown++
 			}
 
 			if shown == 0 {
-				fmt.Fprintln(app.Out, style.Hint("no shared bags yet — run `prizm shared-add <group> <workflow> <name>`"))
+				app.hint("no shared bags yet — run `prizm shared-add <group> <workflow> <name>`")
 			}
 			return nil
 		},
@@ -163,12 +162,16 @@ func newSharedSyncCmd(app *App) *cobra.Command {
 			"the bag. Nothing is written without confirmation.",
 		Args: usageArgs(cobra.MaximumNArgs(3)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := syncAllGlobals(app, args, yes); err != nil {
+				return err
+			}
+
 			bags, err := selectBags(app, args)
 			if err != nil {
 				return err
 			}
 			if len(bags) == 0 {
-				fmt.Fprintln(app.Out, style.Hint("no shared bags to sync"))
+				app.hint("no shared bags to sync")
 				return nil
 			}
 
@@ -211,21 +214,15 @@ func syncBag(app *App, bag store.SharedGroupRef, yes bool) error {
 	}
 
 	if diff.Empty() && membershipDiff == "" {
-		fmt.Fprintln(app.Out, style.Row(style.Same, bag.Name, "up to date"))
+		app.result(style.Same, bag.Name, "up to date")
 		return nil
 	}
 
-	fmt.Fprintf(app.Out, "%s %s\n", style.Heading(label), style.Detail("← "+bag.FilePath))
-	for _, key := range diff.Added {
-		fmt.Fprintln(app.Out, "  "+style.Row(style.Add, key, ""))
+	app.sayf("%s %s", style.Heading(label), style.Detail("← "+bag.FilePath))
+	renderVarDiff(app, diff)
+	if membershipDiff != "" {
+		app.say(strings.TrimRight(membershipDiff, "\n"))
 	}
-	for _, c := range diff.Changed {
-		fmt.Fprintln(app.Out, "  "+style.Row(style.Change, c.Key, c.From+" → "+c.To))
-	}
-	for _, key := range diff.Removed {
-		fmt.Fprintln(app.Out, "  "+style.Row(style.Remove, key, ""))
-	}
-	fmt.Fprint(app.Out, membershipDiff)
 
 	if !yes {
 		ok, err := app.Confirm("Apply? [y/N] ")
@@ -233,7 +230,7 @@ func syncBag(app *App, bag store.SharedGroupRef, yes bool) error {
 			return err
 		}
 		if !ok {
-			fmt.Fprintln(app.Out, style.Row(style.Warn, bag.Name, "skipped"))
+			app.result(style.Warn, bag.Name, "skipped")
 			return nil
 		}
 	}
@@ -247,8 +244,22 @@ func syncBag(app *App, bag store.SharedGroupRef, yes bool) error {
 		}
 	}
 
-	fmt.Fprintln(app.Out, style.Row(style.OK, bag.Name, "synced"))
+	app.result(style.OK, bag.Name, "synced")
 	return nil
+}
+
+// renderVarDiff prints a key-level diff. Shared by bags and the group file so
+// every reconciliation in prizm reads the same.
+func renderVarDiff(app *App, diff sharedfile.Diff) {
+	for _, key := range diff.Added {
+		app.say("  " + style.Row(style.Add, key, ""))
+	}
+	for _, c := range diff.Changed {
+		app.say("  " + style.Row(style.Change, c.Key, c.From+" → "+c.To))
+	}
+	for _, key := range diff.Removed {
+		app.say("  " + style.Row(style.Remove, key, ""))
+	}
 }
 
 // membershipChange resolves the header's repo names and describes any change.
@@ -309,6 +320,29 @@ func sameSet(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// syncAllGlobals reconciles the group file for whichever groups this
+// invocation covers.
+func syncAllGlobals(app *App, args []string, yes bool) error {
+	if len(args) > 0 {
+		g, _, err := app.splitGroup(args, len(args)-1)
+		if err != nil {
+			return err
+		}
+		return syncGlobal(app, g, yes)
+	}
+
+	groups, err := app.Store.ListGroups()
+	if err != nil {
+		return err
+	}
+	for _, g := range groups {
+		if err := syncGlobal(app, g, yes); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // selectBags narrows the bags to sync from optional group/workflow/name args.

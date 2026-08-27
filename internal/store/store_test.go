@@ -103,7 +103,7 @@ func TestSchemaCreatesAllTables(t *testing.T) {
 	s := newTestStore(t)
 
 	want := []string{
-		"groups", "repos", "workflows", "workflow_repos",
+		"groups", "repos", "workflows", "workflow_repos", "group_vars",
 		"repo_vars", "shared_groups", "shared_group_repos",
 		"shared_group_vars", "workflow_repo_vars", "applied",
 	}

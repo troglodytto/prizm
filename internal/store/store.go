@@ -71,6 +71,17 @@ CREATE TABLE IF NOT EXISTS workflow_repos (
 );
 CREATE INDEX IF NOT EXISTS idx_workflow_repos_repo ON workflow_repos(repo_id);
 
+-- Layer 0: group-global. One fact about the whole group — a shared cluster's
+-- username, an AWS account — true in every workflow and every repo, and
+-- overridable by any layer above when it stops being true.
+CREATE TABLE IF NOT EXISTS group_vars (
+	group_id   INTEGER NOT NULL REFERENCES "groups"(id) ON DELETE CASCADE,
+	key        TEXT    NOT NULL,
+	value      BLOB    NOT NULL,
+	updated_at INTEGER NOT NULL,
+	PRIMARY KEY (group_id, key)
+);
+
 -- Layer 1: repo-shared, applies in every workflow that touches this repo.
 CREATE TABLE IF NOT EXISTS repo_vars (
 	repo_id    INTEGER NOT NULL REFERENCES repos(id) ON DELETE CASCADE,

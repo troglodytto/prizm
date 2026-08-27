@@ -18,7 +18,7 @@ func newInitCmd(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintln(app.Out, style.Row(style.OK, g.Name, "group created"))
+			app.result(style.OK, g.Name, "group created")
 			return nil
 		},
 	}
@@ -45,14 +45,36 @@ func listGroups(app *App) error {
 		return err
 	}
 	if len(groups) == 0 {
-		fmt.Fprintln(app.Out, style.Hint("no groups yet — run `prizm init <name>`"))
+		app.hint("no groups yet — run `prizm init <name>`")
 		return nil
 	}
 
+	names := make([]string, 0, len(groups))
 	for _, g := range groups {
-		fmt.Fprintln(app.Out, g.Name)
+		names = append(names, g.Name)
+	}
+	col := style.WidthOf(names)
+
+	app.section("", "groups")
+	for _, g := range groups {
+		repos, err := app.Store.ListRepos(g.ID)
+		if err != nil {
+			return err
+		}
+		workflows, err := app.Store.ListWorkflows(g.ID)
+		if err != nil {
+			return err
+		}
+		app.field(col, g.Name, plural(len(repos), "repo")+" · "+plural(len(workflows), "workflow"))
 	}
 	return nil
+}
+
+func plural(n int, word string) string {
+	if n == 1 {
+		return fmt.Sprintf("%d %s", n, word)
+	}
+	return fmt.Sprintf("%d %ss", n, word)
 }
 
 func listGroup(app *App, name string) error {
@@ -79,14 +101,15 @@ func listGroup(app *App, name string) error {
 	}
 	col := style.WidthOf(names)
 
-	fmt.Fprintln(app.Out, style.Heading(g.Name))
+	app.heading("%s", g.Name)
 
-	fmt.Fprintln(app.Out, "  repos:")
+	app.section("  ", "repos")
 	for _, r := range repos {
-		fmt.Fprintln(app.Out, col.Field(r.Name, r.Path))
+		app.field(col, r.Name, r.Path)
 	}
 
-	fmt.Fprintln(app.Out, "  workflows:")
+	app.blank()
+	app.section("  ", "workflows")
 	for _, w := range workflows {
 		members, err := app.Store.WorkflowRepos(w.ID)
 		if err != nil {
@@ -101,7 +124,7 @@ func listGroup(app *App, name string) error {
 		if w.Tag != "" {
 			tag = "  " + style.Tag(w.Tag)
 		}
-		fmt.Fprintln(app.Out, col.Field(w.Name, joinOrNone(memberNames))+tag)
+		app.say(col.Field(w.Name, joinOrNone(memberNames)) + tag)
 	}
 	return nil
 }

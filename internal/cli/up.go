@@ -45,7 +45,8 @@ func newUpCmd(app *App) *cobra.Command {
 					return err
 				}
 				if !ok {
-					return errors.New("aborted")
+					app.result(style.Warn, wf.Name, "aborted")
+					return errAborted
 				}
 			}
 
@@ -66,7 +67,7 @@ func applyWorkflow(app *App, g store.Group, wf store.Workflow) error {
 		return err
 	}
 	if len(repos) == 0 {
-		fmt.Fprintln(app.Out, style.Hint("workflow "+wf.Name+" covers no repos"))
+		app.hint("workflow %s covers no repos", wf.Name)
 		return nil
 	}
 
@@ -80,10 +81,10 @@ func applyWorkflow(app *App, g store.Group, wf store.Workflow) error {
 	for _, repo := range repos {
 		if err := applyRepo(app, g, wf, repo); err != nil {
 			failed++
-			fmt.Fprintln(app.Out, col.Row(style.Fail, repo.Name, err.Error()))
+			app.row(col, style.Fail, repo.Name, err.Error())
 			continue
 		}
-		fmt.Fprintln(app.Out, col.Row(style.OK, repo.Name, "set ("+wf.Name+")"))
+		app.row(col, style.OK, repo.Name, "set ("+wf.Name+")")
 	}
 
 	if err := app.Store.TouchGroup(g.ID, app.Now()); err != nil {
@@ -124,7 +125,7 @@ func applyRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo) erro
 		return err
 	}
 	if res.BackedUpTo != "" {
-		fmt.Fprintln(app.Out, style.Detail("  backed up existing "+repo.EnvFile+" → "+res.BackedUpTo))
+		app.detail("  backed up existing %s → %s", repo.EnvFile, res.BackedUpTo)
 	}
 
 	return app.Store.RecordApplied(repo.ID, wf.ID, res.BuiltPath, app.Now())

@@ -37,6 +37,12 @@ var (
 	hintStyle    = lipgloss.NewStyle().Faint(true).Italic(true)
 	alertStyle   = lipgloss.NewStyle().Bold(true).Foreground(Red)
 
+	sectionStyle = lipgloss.NewStyle().Faint(true)
+	commandStyle = lipgloss.NewStyle().Bold(true)
+	countStyle   = lipgloss.NewStyle().Faint(true)
+
+	failDetailStyle = lipgloss.NewStyle().Foreground(Red)
+
 	okStyle     = lipgloss.NewStyle().Foreground(Green)
 	failStyle   = lipgloss.NewStyle().Bold(true).Foreground(Red)
 	warnStyle   = lipgloss.NewStyle().Foreground(Yellow)
@@ -108,13 +114,29 @@ func WidthOf(names []string) Column {
 }
 
 // Row is the standard status line: a mark, a name padded to the column, and
-// a dim detail.
+// a detail.
+//
+// The detail is dimmed for outcomes you skim past and left legible for the
+// ones you have to read. Dimming a failure's message hides the single most
+// important line on screen.
 func (c Column) Row(m Mark, name, detail string) string {
 	line := m.Glyph() + " " + pad(name, int(c))
 	if detail == "" {
 		return strings.TrimRight(line, " ")
 	}
-	return line + " " + detailStyle.Render(detail)
+	return line + " " + m.detailStyle().Render(detail)
+}
+
+// detailStyle picks how loudly a mark's detail is rendered.
+func (m Mark) detailStyle() lipgloss.Style {
+	switch m {
+	case Fail:
+		return failDetailStyle
+	case Warn, Ask:
+		return plainStyle
+	default:
+		return detailStyle
+	}
 }
 
 // Field is a Row without a mark, for listings that are not outcomes.
@@ -133,6 +155,17 @@ func pad(s string, n int) string {
 	}
 	return s
 }
+
+// Section labels a block within a listing. Faint and uppercased: it is
+// scaffolding, and should read as quieter than everything it contains.
+func Section(s string) string { return sectionStyle.Render(strings.ToUpper(s)) }
+
+// ErrorLabel is the "Error:" prefix. Red, so a failure is findable in a
+// scrollback without reading.
+func ErrorLabel() string { return failStyle.Render("Error:") }
+
+// Count is a secondary quantity beside a name — "5 repos · 3 workflows".
+func Count(s string) string { return countStyle.Render(s) }
 
 // Heading names a group or a section.
 func Heading(s string) string { return headingStyle.Render(s) }
@@ -177,4 +210,37 @@ func Tag(tag string) string {
 		return detailStyle.Render(tag)
 	}
 	return lipgloss.NewStyle().Bold(true).Foreground(Base).Background(c).Render(" " + tag + " ")
+}
+
+// CommandName renders a command or usage line: bold, uncoloured, because it
+// is something to type rather than something to react to.
+func CommandName(s string) string { return commandStyle.Render(s) }
+
+// Flags restyles a pflag usage block, which arrives as pre-aligned lines of
+// the form "  -x, --name type   description". Only the description is dimmed;
+// the names stay legible because they are what gets typed.
+func Flags(block string) string {
+	var out []string
+
+	for _, line := range strings.Split(block, "\n") {
+		if strings.TrimSpace(line) == "" {
+			out = append(out, line)
+			continue
+		}
+
+		// Skip pflag's leading indent before looking for the gap, or the
+		// indent itself is mistaken for the separator and the whole line
+		// reads as description.
+		start := len(line) - len(strings.TrimLeft(line, " "))
+
+		gap := strings.Index(line[start:], "  ")
+		if gap < 0 {
+			out = append(out, commandStyle.Render(line))
+			continue
+		}
+
+		split := start + gap
+		out = append(out, commandStyle.Render(line[:split])+detailStyle.Render(line[split:]))
+	}
+	return strings.Join(out, "\n")
 }

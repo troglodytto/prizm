@@ -46,8 +46,7 @@ func newVarCmd(app *App) *cobra.Command {
 				}
 			}
 
-			fmt.Fprintln(app.Out, style.Row(style.OK, repo.Name,
-				fmt.Sprintf("%d variable(s) set%s", len(assignments), scopeSuffix(workflow))))
+			app.result(style.OK, repo.Name, fmt.Sprintf("%d variable(s) set%s", len(assignments), scopeSuffix(workflow)))
 			return nil
 		},
 	}
@@ -92,8 +91,7 @@ func newImportCmd(app *App) *cobra.Command {
 				}
 			}
 
-			fmt.Fprintln(app.Out, style.Row(style.OK, repo.Name,
-				fmt.Sprintf("%d variable(s) imported%s", len(vars), scopeSuffix(workflow))))
+			app.result(style.OK, repo.Name, fmt.Sprintf("%d variable(s) imported%s", len(vars), scopeSuffix(workflow)))
 			return nil
 		},
 	}

@@ -57,6 +57,7 @@ func NewRootCmd(app *App) *cobra.Command {
 
 	root.SetOut(app.Out)
 	root.SetErr(app.Err)
+	registerHelpStyling(root)
 
 	// A wrong flag is a usage problem, so it should show help too.
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
@@ -71,6 +72,7 @@ func NewRootCmd(app *App) *cobra.Command {
 		newVarCmd(app),
 		newImportCmd(app),
 		newUpCmd(app),
+		newGlobalCmd(app),
 		newSharedAddCmd(app),
 		newSharedEditCmd(app),
 		newSharedLsCmd(app),
@@ -114,7 +116,7 @@ func Execute() int {
 	if err := Run(root); err != nil {
 		var shown errShown
 		if !errors.As(err, &shown) {
-			fmt.Fprintln(os.Stderr, "Error:", err)
+			failLine(os.Stderr, err)
 		}
 		return 1
 	}
@@ -122,7 +124,7 @@ func Execute() int {
 }
 
 func fail(err error) int {
-	fmt.Fprintln(os.Stderr, "prizm:", err)
+	failLine(os.Stderr, err)
 	return 1
 }
 
@@ -169,7 +171,7 @@ func rewriteArgs(app *App, root *cobra.Command, args []string) []string {
 // confirmOnStdin is the real prompt. Anything other than y/yes declines.
 func confirmOnStdin(out io.Writer) func(string) (bool, error) {
 	return func(prompt string) (bool, error) {
-		fmt.Fprint(out, prompt)
+		promptLine(out, prompt)
 
 		line, err := bufio.NewReader(os.Stdin).ReadString('\n')
 		if err != nil && line == "" {

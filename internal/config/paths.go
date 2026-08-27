@@ -44,6 +44,15 @@ func BuiltPath(group, workflow, repo string) (string, error) {
 	return filepath.Join(dir, "built", group, workflow, repo+".env"), nil
 }
 
+// GlobalPath is the file backing a group's group-global variables.
+func GlobalPath(group string) (string, error) {
+	dir, err := DataDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "shared", group, "global.env"), nil
+}
+
 // EnsureDir creates dir and its parents with owner-only permissions.
 func EnsureDir(dir string) error {
 	return os.MkdirAll(dir, 0o700)

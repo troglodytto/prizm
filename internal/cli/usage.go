@@ -35,6 +35,11 @@ func usageArgs(validate cobra.PositionalArgs) cobra.PositionalArgs {
 	}
 }
 
+// errAborted means the user declined a confirmation. It exits non-zero,
+// because what was asked for did not happen, but prints nothing further:
+// they already know, they just said no.
+var errAborted = errShown{err: errors.New("aborted")}
+
 // Run executes the command tree, showing the failing command's help when the
 // problem was how it was invoked.
 func Run(root *cobra.Command) error {
@@ -49,8 +54,8 @@ func Run(root *cobra.Command) error {
 	}
 
 	// Print the error first so it survives a long help block scrolling past.
-	fmt.Fprintln(cmd.ErrOrStderr(), "Error:", err)
-	fmt.Fprintln(cmd.ErrOrStderr())
+	failLine(cmd.ErrOrStderr(), err)
+	blankLine(cmd.ErrOrStderr())
 	if helpErr := cmd.Help(); helpErr != nil {
 		return err
 	}

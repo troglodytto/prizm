@@ -10,11 +10,19 @@ import (
 // merges them. The result still contains ${...} templates; call Expand to
 // resolve them and Emit to drop the internal plumbing.
 func ForRepo(s *store.Store, wf store.Workflow, repo store.Repo) (map[string]string, error) {
+	// Layer 0: facts about the whole group. Lowest precedence, so any layer
+	// above can contradict one without anything being unwired first.
+	groupVars, err := s.GroupVars(repo.GroupID)
+	if err != nil {
+		return nil, fmt.Errorf("reading group vars for %q: %w", repo.Name, err)
+	}
+	layers := []Layer{{Name: "group", Vars: groupVars}}
+
 	repoVars, err := s.RepoVars(repo.ID)
 	if err != nil {
 		return nil, fmt.Errorf("reading repo-shared vars for %q: %w", repo.Name, err)
 	}
-	layers := []Layer{{Name: "repo-shared", Vars: repoVars}}
+	layers = append(layers, Layer{Name: "repo-shared", Vars: repoVars})
 
 	sharedGroups, err := s.SharedGroupsForRepo(wf.ID, repo.ID)
 	if err != nil {

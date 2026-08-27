@@ -38,8 +38,7 @@ func newAddWorkflowCmd(app *App) *cobra.Command {
 				return err
 			}
 
-			fmt.Fprintln(app.Out, style.Row(style.OK, wf.Name,
-				fmt.Sprintf("workflow covering %d repo(s)", len(repoIDs))))
+			app.result(style.OK, wf.Name, fmt.Sprintf("workflow covering %d repo(s)", len(repoIDs)))
 			return nil
 		},
 	}
