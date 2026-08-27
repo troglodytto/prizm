@@ -18,6 +18,10 @@ type Group struct {
 
 // CreateGroup registers a new group.
 func (s *Store) CreateGroup(name string) (Group, error) {
+	if err := checkName("group", name); err != nil {
+		return Group{}, err
+	}
+
 	res, err := s.db.Exec(
 		`INSERT INTO "groups"(name, created_at) VALUES (?, ?)`,
 		name, time.Now().Unix(),

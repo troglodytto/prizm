@@ -38,6 +38,9 @@ type Workflow struct {
 
 // AddWorkflow creates a workflow and its repo membership atomically.
 func (s *Store) AddWorkflow(groupID int64, name, tag string, repoIDs []int64) (Workflow, error) {
+	if err := checkName("workflow", name); err != nil {
+		return Workflow{}, err
+	}
 	if IsReservedName(name) {
 		return Workflow{}, fmt.Errorf("workflow %q: %w (it is a prizm command)", name, ErrReservedName)
 	}

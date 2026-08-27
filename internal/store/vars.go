@@ -58,6 +58,10 @@ func (s *Store) RepoVars(repoID int64) (map[string]string, error) {
 
 // CreateSharedGroup creates a named shared-variable group inside a workflow.
 func (s *Store) CreateSharedGroup(workflowID int64, name string) (SharedGroup, error) {
+	if err := checkName("shared bag", name); err != nil {
+		return SharedGroup{}, err
+	}
+
 	res, err := s.db.Exec(
 		`INSERT INTO shared_groups(workflow_id, name, created_at) VALUES (?, ?, ?)`,
 		workflowID, name, time.Now().Unix(),

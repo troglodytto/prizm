@@ -16,7 +16,7 @@ func TestMissingArgumentsShowThatCommandsHelp(t *testing.T) {
 		wantIn  string
 		wantUse string
 	}{
-		{name: "add-repo alone", args: []string{"add-repo"}, wantIn: "Register a repo", wantUse: "add-repo <group> <repo>"},
+		{name: "add-repo alone", args: []string{"add-repo"}, wantIn: "path when it looks like one", wantUse: "add-repo <group> [name|path]"},
 		{name: "add-workflow alone", args: []string{"add-workflow"}, wantIn: "Without --repos", wantUse: "add-workflow <group> <workflow>"},
 		{name: "init alone", args: []string{"init"}, wantIn: "Create a new group", wantUse: "init <group>"},
 		{name: "shared-add alone", args: []string{"shared-add"}, wantIn: "backed by a real .env file", wantUse: "shared-add"},

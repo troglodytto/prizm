@@ -22,6 +22,9 @@ const DefaultEnvFile = ".env"
 // AddRepo registers a repo in a group. path must already be absolute: repo
 // paths are a stable contract, changed only by `prizm repair`.
 func (s *Store) AddRepo(groupID int64, name, path, envFile string) (Repo, error) {
+	if err := checkName("repo", name); err != nil {
+		return Repo{}, err
+	}
 	if envFile == "" {
 		envFile = DefaultEnvFile
 	}
