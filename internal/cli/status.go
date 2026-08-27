@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -87,6 +88,8 @@ func reportStatus(app *App, g store.Group) error {
 		app.say(col.Row(mark, repo.Name, detail) + tagSuffix(wf.Tag))
 	}
 
+	reportServices(app, g, applied, byID)
+
 	app.blank()
 	switch {
 	case missing > 0:
@@ -97,6 +100,45 @@ func reportStatus(app *App, g store.Group) error {
 		app.hint("nothing applied yet — run `prizm %s <workflow>`", g.Name)
 	}
 	return nil
+}
+
+// reportServices lists the containers the applied workflows put up. Without
+// it `prizm down` is a command nobody discovers: status is where you look to
+// find out what is running.
+func reportServices(app *App, g store.Group, applied map[int64]store.Applied, byID map[int64]store.Workflow) {
+	if app.Docker == nil {
+		return
+	}
+
+	// One line per workflow, not per repo — a stack belongs to the workflow,
+	// and every repo on it would otherwise repeat the same answer.
+	seen := map[int64]bool{}
+	for _, state := range applied {
+		if seen[state.WorkflowID] {
+			continue
+		}
+		seen[state.WorkflowID] = true
+
+		wf, ok := byID[state.WorkflowID]
+		if !ok {
+			continue
+		}
+		stack, err := app.Store.DockerStackFor(wf.ID)
+		if err != nil {
+			continue
+		}
+
+		app.blank()
+		running, out, err := runningServices(app, g, wf, stack)
+		switch {
+		case err != nil:
+			app.result(style.Warn, wf.Name, "services unknown — "+dockerReason(err, out))
+		case len(running) == 0:
+			app.result(style.Same, wf.Name, "services stopped")
+		default:
+			app.result(style.OK, wf.Name, "services running · "+strings.Join(running, ", "))
+		}
+	}
 }
 
 // statusOf turns a drift report into the mark and text for one line.

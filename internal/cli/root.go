@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/troglodytto/prizm/internal/compose"
 	"github.com/troglodytto/prizm/internal/config"
 	"github.com/troglodytto/prizm/internal/crypto"
 	"github.com/troglodytto/prizm/internal/store"
@@ -41,6 +42,10 @@ type App struct {
 
 	// EditFile opens a path in the user's editor and returns when it exits.
 	EditFile func(path string) error
+
+	// Docker runs compose commands. Injectable so every docker path is
+	// testable without a daemon.
+	Docker compose.Runner
 
 	pickerInjected bool
 }
@@ -115,6 +120,8 @@ func commandsOf(app *App) []*cobra.Command {
 		newSyncCmd(app),
 		newAuditCmd(app),
 		newEditCmd(app),
+		newDockerCmd(app),
+		newDownCmd(app),
 		newRepairCmd(app),
 		newRenameCmd(app),
 		newRemoveCmd(app),
@@ -160,6 +167,7 @@ func Execute() int {
 	app.Resolve = tui.Resolve
 	app.PickHistory = tui.History
 	app.EditFile = launchEditor
+	app.Docker = compose.CLI{}
 
 	root := NewRootCmd(app)
 	root.SetArgs(rewriteArgs(app, root, os.Args[1:]))

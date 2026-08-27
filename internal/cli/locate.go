@@ -136,3 +136,19 @@ func (a *App) splitGroupRepoByLookup(args []string) (store.Group, store.Repo, []
 	}
 	return g, repo, rest, nil
 }
+
+// groupWorkflow resolves the `[group] <workflow>` shape shared by up, down
+// and docker, so all three infer the group from the working directory in
+// exactly the same way.
+func (a *App) groupWorkflow(args []string) (store.Group, store.Workflow, error) {
+	g, rest, err := a.splitGroup(args, 1)
+	if err != nil {
+		return store.Group{}, store.Workflow{}, err
+	}
+
+	wf, err := a.Store.WorkflowByName(g.ID, rest[0])
+	if err != nil {
+		return store.Group{}, store.Workflow{}, fmt.Errorf("no such workflow %q in group %s", rest[0], g.Name)
+	}
+	return g, wf, nil
+}

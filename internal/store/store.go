@@ -126,6 +126,16 @@ CREATE TABLE IF NOT EXISTS workflow_repo_vars (
 	PRIMARY KEY (workflow_id, repo_id, key)
 );
 
+-- A workflow may declare a compose stack to bring up alongside its env
+-- files. Its own table rather than columns on workflows: most workflows have
+-- no services, and absence of a row says that more plainly than two NULLs.
+CREATE TABLE IF NOT EXISTS workflow_docker (
+	workflow_id  INTEGER PRIMARY KEY REFERENCES workflows(id) ON DELETE CASCADE,
+	compose_path TEXT    NOT NULL,
+	services     TEXT    NOT NULL DEFAULT '',
+	updated_at   INTEGER NOT NULL
+);
+
 -- Every variable write records the resulting state of its scope, so history
 -- exists before anyone thinks to ask for it. Content is hashed so re-running
 -- a command that changes nothing does not add a version.

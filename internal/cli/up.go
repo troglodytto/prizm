@@ -29,6 +29,9 @@ func newUpCmd(app *App) *cobra.Command {
 		Long: "Every covered repo gets its env file rebuilt and linked. Repos are\n" +
 			"independent: one that fails is reported and skipped with its existing\n" +
 			"file untouched, while the rest still apply.\n\n" +
+			"A workflow with a compose stack attached also has its services\n" +
+			"started, reported separately: docker being down never makes a\n" +
+			"successful env write look like a failure.\n\n" +
 			"--dry-run shows what each repo would gain, lose and change without\n" +
 			"writing anything — worth running before a prod-tagged workflow.",
 		Args:              usageArgs(cobra.RangeArgs(1, 2)),
@@ -214,8 +217,13 @@ func applyWorkflow(app *App, g store.Group, wf store.Workflow) error {
 		return err
 	}
 	if failed > 0 {
+		// The services are not brought up on a partial apply: starting a
+		// database for a set of repos that failed to configure would leave
+		// the two halves disagreeing about what is running.
 		return fmt.Errorf("%d of %d repo(s) failed", failed, len(repos))
 	}
+
+	bringUp(app, g, wf)
 	return nil
 }
 
