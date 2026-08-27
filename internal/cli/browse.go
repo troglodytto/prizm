@@ -117,7 +117,7 @@ func pickGroup(app *App) (string, error) {
 			Desc:  plural(len(paths[name]), "repo"),
 		})
 	}
-	return app.PickOne("Select a group", options)
+	return app.PickOne("Select a group", "", options)
 }
 
 func pickWorkflow(app *App, g store.Group) (string, error) {
@@ -151,7 +151,7 @@ func pickWorkflow(app *App, g store.Group) (string, error) {
 			Tag:   w.Tag,
 		})
 	}
-	return app.PickOne("Select a workflow — "+g.Name, options)
+	return app.PickOne("Select a workflow", g.Name, options)
 }
 
 // chooseRepos resolves which repos a workflow or bag covers.

@@ -229,18 +229,17 @@ func TagColor(tag string) lipgloss.TerminalColor {
 	return spareTagColors[h.Sum32()%uint32(len(spareTagColors))]
 }
 
-// Tag renders a workflow tag as an inverted badge.
+// Tag renders a workflow tag.
 //
-// Inversion rather than coloured text is deliberate: a tag is the one thing
-// on screen someone should be able to find without reading, and a filled
-// block survives a colour scheme that mangles hues in a way that coloured
-// text does not.
+// Bold coloured text rather than a filled block: the colour still separates
+// one tag from another at a glance, and the parentheses keep it legible when
+// a scheme washes the hue out. Lighter than a badge, which matters when every
+// row in a listing carries one.
 func Tag(tag string) string {
 	if tag == "" {
 		return ""
 	}
-
-	return lipgloss.NewStyle().Bold(true).Foreground(Base).Background(TagColor(tag)).Render(" " + tag + " ")
+	return lipgloss.NewStyle().Bold(true).Foreground(TagColor(tag)).Render("(" + tag + ")")
 }
 
 // CommandName renders a command or usage line: bold, uncoloured, because it

@@ -16,7 +16,7 @@ func (h *harness) scriptPicker(answers ...string) *[][]tui.Option {
 
 	i := 0
 	h.app.pickerInjected = true
-	h.app.PickOne = func(_ string, options []tui.Option) (string, error) {
+	h.app.PickOne = func(_, _ string, options []tui.Option) (string, error) {
 		offered = append(offered, options)
 		if i >= len(answers) {
 			return "", tui.ErrCancelled
@@ -96,7 +96,7 @@ func TestBrowseCancellationIsQuietAndSuccessful(t *testing.T) {
 	h.run(t, "init", "XYZ")
 
 	h.app.pickerInjected = true
-	h.app.PickOne = func(string, []tui.Option) (string, error) { return "", tui.ErrCancelled }
+	h.app.PickOne = func(string, string, []tui.Option) (string, error) { return "", tui.ErrCancelled }
 
 	if err := h.run(t, "pick"); err != nil {
 		t.Errorf("cancelling returned %v, want nil — esc is not an error", err)
@@ -129,7 +129,7 @@ func TestLsNeverOpensAPicker(t *testing.T) {
 	h.run(t, "add-workflow", "XYZ", "local")
 
 	h.app.pickerInjected = true
-	h.app.PickOne = func(string, []tui.Option) (string, error) {
+	h.app.PickOne = func(string, string, []tui.Option) (string, error) {
 		t.Error("ls opened a picker")
 		return "", nil
 	}
@@ -148,7 +148,7 @@ func TestBrowsePropagatesRealPickerErrors(t *testing.T) {
 
 	want := errors.New("terminal exploded")
 	h.app.pickerInjected = true
-	h.app.PickOne = func(string, []tui.Option) (string, error) { return "", want }
+	h.app.PickOne = func(string, string, []tui.Option) (string, error) { return "", want }
 
 	if err := h.run(t, "pick"); !errors.Is(err, want) {
 		t.Errorf("error = %v, want the underlying failure to surface", err)
@@ -209,7 +209,7 @@ func TestBarePrizmShowsHelpNotThePicker(t *testing.T) {
 	h.run(t, "add-workflow", "XYZ", "local")
 
 	h.app.pickerInjected = true
-	h.app.PickOne = func(string, []tui.Option) (string, error) {
+	h.app.PickOne = func(string, string, []tui.Option) (string, error) {
 		t.Error("bare prizm opened the picker")
 		return "", nil
 	}

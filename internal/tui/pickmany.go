@@ -1,9 +1,11 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type pickManyModel struct {
@@ -138,46 +140,50 @@ func (m pickManyModel) move(delta int) pickManyModel {
 }
 
 func (m pickManyModel) View() string {
-	// Bubble Tea renders the final View on quit. A picker is a question, not
-	// a result — once answered it should leave nothing behind, so the
-	// command's own output is what remains on screen.
 	if m.done {
 		return ""
 	}
 
 	var b strings.Builder
 
-	b.WriteString(titleStyle.Render(m.title) + "\n\n")
+	chosen := len(m.selectedValues())
+	count := countStyle.Render(fmt.Sprintf("%d", chosen)) +
+		dimStyle.Render(fmt.Sprintf(" of %d selected", len(m.options)))
+	b.WriteString("\n  " + title(m.title, "") + "\n  " + count + "\n\n")
 
 	width := 0
 	for _, o := range m.options {
-		if n := len(o.Label); n > width {
+		if n := lipgloss.Width(o.Label); n > width {
 			width = n
 		}
 	}
 
 	for i, o := range m.options {
-		cursor := "  "
+		marker := noBar
 		if i == m.cursor {
-			cursor = cursorStyle.Render("❯ ")
+			marker = barStyle.Render(bar)
 		}
 
-		box := "[ ]"
+		box, label := uncheckedStyle.Render(unchecked), itemStyle.Render(o.Label)
 		if m.selected[o.Value] {
-			box = checkedStyle.Render("[x]")
+			box, label = checkedStyle.Render(checked), selectedStyle.Render(o.Label)
 		}
 
-		pad := strings.Repeat(" ", width-len(o.Label))
-		b.WriteString(cursor + box + " " + o.Label + pad + "  " + dimStyle.Render(o.Desc) + "\n")
+		pad := strings.Repeat(" ", width-lipgloss.Width(o.Label))
+		row := "  " + marker + box + "  " + label + pad
+		if o.Desc != "" {
+			row += "   " + dimStyle.Render(o.Desc)
+		}
+		b.WriteString(row + "\n")
 	}
 
-	b.WriteString("\n" + helpStyle.Render("↑↓ move   space toggle   a all   ⏎ submit   esc cancel"))
-	return frameStyle.Render(b.String())
+	b.WriteString("\n  " + help("↑↓", "move", "space", "toggle", "a", "all", "⏎", "confirm", "esc", "cancel"))
+	return b.String() + "\n"
 }
 
 // PickMany shows a checkbox list and returns the ticked values.
-func PickMany(title string, options []Option, preselected []string) ([]string, error) {
-	final, err := run(newPickManyModel(title, options, preselected))
+func PickMany(heading string, options []Option, preselected []string) ([]string, error) {
+	final, err := run(newPickManyModel(heading, options, preselected))
 	if err != nil {
 		return nil, err
 	}

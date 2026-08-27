@@ -1,14 +1,15 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type pickOneModel struct {
 	title     string
+	context   string
 	options   []Option
 	cursor    int
 	filter    string
@@ -154,42 +155,50 @@ func (m pickOneModel) View() string {
 	}
 
 	var b strings.Builder
-
-	b.WriteString(titleStyle.Render(m.title) + "\n\n")
+	b.WriteString("\n  " + title(m.title, m.context) + "\n\n")
 
 	visible := m.visible()
 	if len(visible) == 0 {
-		b.WriteString(dimStyle.Render("  no matches") + "\n")
+		b.WriteString("  " + noBar + dimStyle.Render("nothing matches "+m.filter) + "\n")
 	}
 
 	width := 0
 	for _, o := range visible {
-		if n := len(o.Label); n > width {
+		if n := lipgloss.Width(o.Label); n > width {
 			width = n
 		}
 	}
 
 	for i, o := range visible {
-		cursor, label := "  ", o.Label
+		marker, label := noBar, itemStyle.Render(o.Label)
 		if i == m.cursor {
-			cursor, label = cursorStyle.Render("❯ "), selectedStyle.Render(o.Label)
+			marker, label = barStyle.Render(bar), selectedStyle.Render(o.Label)
 		}
-		pad := strings.Repeat(" ", width-len(o.Label))
-		b.WriteString(cursor + label + pad + "  " + dimStyle.Render(o.Desc) + badge(o.Tag) + "\n")
+
+		pad := strings.Repeat(" ", width-lipgloss.Width(o.Label))
+		row := "  " + marker + label + pad
+		if o.Desc != "" {
+			row += "   " + dimStyle.Render(o.Desc)
+		}
+		b.WriteString(row + badge(o.Tag) + "\n")
 	}
 
-	b.WriteString("\n")
+	b.WriteString("\n  ")
 	if m.filtering {
-		b.WriteString(helpStyle.Render(fmt.Sprintf("filter: %s   ⏎ select   esc clear", m.filter)))
+		b.WriteString(filterStyle.Render("/"+m.filter+"▏") + "   " +
+			help("⏎", "select", "esc", "clear"))
 	} else {
-		b.WriteString(helpStyle.Render("↑↓ move   / filter   ⏎ select   esc cancel"))
+		b.WriteString(help("↑↓", "move", "/", "filter", "⏎", "select", "esc", "cancel"))
 	}
-	return frameStyle.Render(b.String())
+	return b.String() + "\n"
 }
 
 // PickOne shows a filterable list and returns the chosen option's value.
-func PickOne(title string, options []Option) (string, error) {
-	final, err := run(newPickOneModel(title, options))
+func PickOne(heading, context string, options []Option) (string, error) {
+	m := newPickOneModel(heading, options)
+	m.context = context
+
+	final, err := run(m)
 	if err != nil {
 		return "", err
 	}

@@ -32,7 +32,7 @@ type App struct {
 	// Interactive surfaces. Injectable so every path is testable without a
 	// terminal; pickerInjected is the test-only escape hatch and must never
 	// be settable from a flag or the environment.
-	PickOne  func(title string, options []tui.Option) (string, error)
+	PickOne  func(heading, context string, options []tui.Option) (string, error)
 	PickMany func(title string, options []tui.Option, preselected []string) ([]string, error)
 
 	pickerInjected bool
