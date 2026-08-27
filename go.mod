@@ -2,19 +2,14 @@ module github.com/troglodytto/prizm
 
 go 1.25.0
 
-// Retracted: these versions carry identifiers from a private codebase that
-// were used as example data. No credentials are involved and nothing is
-// functionally wrong with them — retraction hides them from `go get` and
-// pkg.go.dev. The proxy caches published modules permanently, so the content
-// itself cannot be withdrawn.
 retract (
-	v0.0.1
-	v0.1.0
-	v0.2.0
-	v0.5.0
-	v0.6.0
-	v0.6.1
-	v0.6.2
+	v0.0.1 // superseded
+	v0.1.0 // superseded
+	v0.2.0 // superseded
+	v0.5.0 // superseded
+	v0.6.0 // superseded
+	v0.6.1 // superseded
+	v0.6.2 // superseded
 )
 
 require (
