@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -32,10 +33,13 @@ func newRenameCmd(app *App) *cobra.Command {
 			}
 			newName := rest[0]
 
-			switch {
-			case repo != "" && workflow != "":
-				return errUsage("pass --repo or --workflow, not both")
+			if err := exactlyOneTarget(map[string]string{
+				"--repo": repo, "--workflow": workflow,
+			}); err != nil {
+				return err
+			}
 
+			switch {
 			case repo != "":
 				r, err := app.repoIn(g, repo)
 				if err != nil {
@@ -92,6 +96,12 @@ func newRemoveCmd(app *App) *cobra.Command {
 			"should not reach into your repos.",
 		Args: usageArgs(cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := exactlyOneTarget(map[string]string{
+				"--repo": repo, "--workflow": workflow, "--bag": bag,
+			}); err != nil {
+				return err
+			}
+
 			g, _, err := app.splitGroup(args, 0)
 			if err != nil {
 				return err
@@ -244,6 +254,26 @@ func newUnsetCmd(app *App) *cobra.Command {
 	return cmd
 }
 
+// exactlyOneTarget rejects an invocation that names more than one thing to
+// act on. Silently acting on the first and ignoring the rest is the worst
+// possible answer for a destructive command: the user believes both happened.
+//
+// Naming none is allowed — that is how a command means "the group itself".
+func exactlyOneTarget(flags map[string]string) error {
+	var given []string
+	for name, value := range flags {
+		if value != "" {
+			given = append(given, name)
+		}
+	}
+	if len(given) < 2 {
+		return nil
+	}
+
+	sortStrings(given)
+	return errUsage("%s name different things — pass one at a time", strings.Join(given, " and "))
+}
+
 // confirmRemoval states what is about to go, then asks. Deletion is the one
 // place where being slightly annoying is correct.
 func confirmRemoval(app *App, yes bool, subject, contents string) bool {
@@ -278,11 +308,21 @@ func findBag(app *App, g store.Group, name string) (store.SharedGroup, error) {
 	switch len(found) {
 	case 0:
 		return store.SharedGroup{}, fmt.Errorf("no shared bag %q in group %s", name, g.Name)
+
 	case 1:
 		return found[0].SharedGroup, nil
+
 	default:
+		// Refuse rather than pick. Deleting the wrong environment's
+		// credentials is not something an error message can undo.
+		where := make([]string, 0, len(found))
+		for _, b := range found {
+			where = append(where, b.WorkflowName)
+		}
+		sortStrings(where)
+
 		return store.SharedGroup{}, errUsage(
-			"%q exists in several workflows in %s — remove the workflow instead, or delete its file",
-			name, g.Name)
+			"%s has a bag named %q in %s — prizm will not guess which; remove the workflow itself, or delete the bag's file",
+			g.Name, name, strings.Join(where, ", "))
 	}
 }
