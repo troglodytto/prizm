@@ -60,9 +60,9 @@ func NewRootCmd(app *App) *cobra.Command {
 			if len(args) > 0 {
 				return errUsage("unknown command or group %q", args[0])
 			}
-			if app.canPick() {
-				return browse(app, "")
-			}
+			// Bare `prizm` is help. The picker is `prizm pick`, because a
+			// tool's front door should tell you what it does, not take over
+			// the terminal before you have asked for anything.
 			return cmd.Help()
 		},
 	}
@@ -89,7 +89,7 @@ func NewRootCmd(app *App) *cobra.Command {
 		newAddRepoCmd(app),
 		newAddWorkflowCmd(app),
 		newLsCmd(app),
-		newBrowseCmd(app),
+		newPickCmd(app),
 		newVarCmd(app),
 		newImportCmd(app),
 		newUpCmd(app),

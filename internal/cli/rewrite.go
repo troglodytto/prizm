@@ -17,7 +17,7 @@ type Resolver struct {
 //
 //	prizm XYZ up local  →  prizm up XYZ local
 //	prizm XYZ local     →  prizm up XYZ local
-//	prizm XYZ           →  prizm browse XYZ
+//	prizm XYZ           →  prizm pick XYZ
 //	prizm local         →  prizm up XYZ local   (inside one of XYZ's repos)
 //
 // This works because every group-scoped verb takes the group as its first
@@ -43,7 +43,7 @@ func Rewrite(args []string, r Resolver) []string {
 
 	if r.IsGroup(head) {
 		if len(args) == 1 {
-			return []string{"browse", head}
+			return []string{"pick", head}
 		}
 		if r.IsCommand(args[1]) {
 			return append([]string{args[1], head}, args[2:]...)

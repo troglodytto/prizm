@@ -138,6 +138,13 @@ func (m pickManyModel) move(delta int) pickManyModel {
 }
 
 func (m pickManyModel) View() string {
+	// Bubble Tea renders the final View on quit. A picker is a question, not
+	// a result — once answered it should leave nothing behind, so the
+	// command's own output is what remains on screen.
+	if m.done {
+		return ""
+	}
+
 	var b strings.Builder
 
 	b.WriteString(titleStyle.Render(m.title) + "\n\n")

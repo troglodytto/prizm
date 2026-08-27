@@ -167,3 +167,39 @@ func TestPickManyEscapeCancels(t *testing.T) {
 		t.Error("Result() submitted = true after escape")
 	}
 }
+
+// A picker is a question, not a result. Bubble Tea renders the final View on
+// quit, so anything drawn there stays on screen after the answer — the frame
+// must be gone by then.
+func TestPickOneLeavesNothingBehind(t *testing.T) {
+	m := newPickOneModel("Workflow", opts())
+	if m.View() == "" {
+		t.Fatal("View() is empty before the user has answered")
+	}
+
+	m = m.update(tea.KeyMsg{Type: tea.KeyEnter})
+	if got := m.View(); got != "" {
+		t.Errorf("View() after selecting = %q, want empty", got)
+	}
+}
+
+func TestPickOneLeavesNothingBehindOnCancel(t *testing.T) {
+	m := newPickOneModel("Workflow", opts())
+	m = m.update(tea.KeyMsg{Type: tea.KeyEsc})
+
+	if got := m.View(); got != "" {
+		t.Errorf("View() after escape = %q, want empty", got)
+	}
+}
+
+func TestPickManyLeavesNothingBehind(t *testing.T) {
+	m := newPickManyModel("Repos", repoOpts(), nil)
+	if m.View() == "" {
+		t.Fatal("View() is empty before the user has answered")
+	}
+
+	m = m.update(tea.KeyMsg{Type: tea.KeyEnter})
+	if got := m.View(); got != "" {
+		t.Errorf("View() after submitting = %q, want empty", got)
+	}
+}

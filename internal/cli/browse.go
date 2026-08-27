@@ -11,14 +11,18 @@ import (
 	"github.com/troglodytto/prizm/internal/tui"
 )
 
-// newBrowseCmd backs the group-first sugar: `prizm XYZ` drills into XYZ's
-// workflows. Hidden because it is never typed — Rewrite produces it.
-func newBrowseCmd(app *App) *cobra.Command {
+// newPickCmd is the interactive front door, and what the group-first sugar
+// resolves to: `prizm XYZ` drills straight into XYZ's workflows.
+func newPickCmd(app *App) *cobra.Command {
 	return &cobra.Command{
-		Use:    "browse [group]",
-		Short:  "Pick a workflow and apply it",
-		Hidden: true,
-		Args:   usageArgs(cobra.MaximumNArgs(1)),
+		Use:     "pick [group]",
+		Short:   "Choose a workflow interactively and apply it",
+		Aliases: []string{"browse"},
+		Long: "Walks group → workflow → apply. Naming a group skips the first step,\n" +
+			"which is what `prizm <group>` does.\n\n" +
+			"Without a terminal it lists instead of prompting, so it stays usable\n" +
+			"in a pipe or a script.",
+		Args: usageArgs(cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := ""
 			if len(args) == 1 {

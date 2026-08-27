@@ -39,8 +39,8 @@ func TestBrowsePicksGroupThenWorkflowThenApplies(t *testing.T) {
 
 	offered := h.scriptPicker("XYZ", "local")
 
-	if err := h.run(t, "browse"); err != nil {
-		t.Fatalf("browse error = %v", err)
+	if err := h.run(t, "pick"); err != nil {
+		t.Fatalf("pick error = %v", err)
 	}
 
 	if len(*offered) != 2 {
@@ -65,7 +65,7 @@ func TestBrowseSkipsTheGroupPromptWhenGroupIsGiven(t *testing.T) {
 	h.run(t, "add-workflow", "XYZ", "local")
 
 	offered := h.scriptPicker("local")
-	h.run(t, "browse", "XYZ")
+	h.run(t, "pick", "XYZ")
 
 	if len(*offered) != 1 {
 		t.Errorf("picker shown %d times, want 1 (workflow only)", len(*offered))
@@ -79,7 +79,7 @@ func TestBrowseCarriesTagsAndReposIntoThePicker(t *testing.T) {
 	h.run(t, "add-workflow", "XYZ", "production", "--tag", "prod")
 
 	offered := h.scriptPicker("XYZ", "production")
-	h.run(t, "browse")
+	h.run(t, "pick")
 
 	wf := (*offered)[1][0]
 	if wf.Tag != "prod" {
@@ -98,7 +98,7 @@ func TestBrowseCancellationIsQuietAndSuccessful(t *testing.T) {
 	h.app.pickerInjected = true
 	h.app.PickOne = func(string, []tui.Option) (string, error) { return "", tui.ErrCancelled }
 
-	if err := h.run(t, "browse"); err != nil {
+	if err := h.run(t, "pick"); err != nil {
 		t.Errorf("cancelling returned %v, want nil — esc is not an error", err)
 	}
 }
@@ -112,8 +112,8 @@ func TestBrowseWithoutAPickerFallsBackToListing(t *testing.T) {
 	h.app.PickOne = nil
 	h.app.pickerInjected = false
 
-	if err := h.run(t, "browse"); err != nil {
-		t.Fatalf("browse error = %v", err)
+	if err := h.run(t, "pick"); err != nil {
+		t.Fatalf("pick error = %v", err)
 	}
 	out := h.out.String()
 	if !strings.Contains(out, "XYZ") || !strings.Contains(out, "ABC") {
@@ -150,7 +150,7 @@ func TestBrowsePropagatesRealPickerErrors(t *testing.T) {
 	h.app.pickerInjected = true
 	h.app.PickOne = func(string, []tui.Option) (string, error) { return "", want }
 
-	if err := h.run(t, "browse"); !errors.Is(err, want) {
+	if err := h.run(t, "pick"); !errors.Is(err, want) {
 		t.Errorf("error = %v, want the underlying failure to surface", err)
 	}
 }
@@ -198,5 +198,26 @@ func TestAddWorkflowExplicitReposSkipsThePicker(t *testing.T) {
 
 	if err := h.run(t, "add-workflow", "XYZ", "local", "--repos", "auth"); err != nil {
 		t.Fatalf("add-workflow error = %v", err)
+	}
+}
+
+// The front door tells you what the tool does; it does not take over the
+// terminal before you have asked for anything.
+func TestBarePrizmShowsHelpNotThePicker(t *testing.T) {
+	h := newHarness(t)
+	h.run(t, "init", "XYZ")
+	h.run(t, "add-workflow", "XYZ", "local")
+
+	h.app.pickerInjected = true
+	h.app.PickOne = func(string, []tui.Option) (string, error) {
+		t.Error("bare prizm opened the picker")
+		return "", nil
+	}
+
+	if err := h.run(t); err != nil {
+		t.Fatalf("bare prizm error = %v", err)
+	}
+	if got := h.help(); !strings.Contains(got, "COMMANDS") {
+		t.Errorf("output = %q, want the help text", got)
 	}
 }
