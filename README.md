@@ -8,7 +8,7 @@ prizm platform local
 
 One command sets up `frontend`, `backend`, `auth` and `ai` — each with its own env file, built from its own layered configuration, symlinked into place.
 
-> **v0.1.0.** Usable: define groups, repos and workflows, layer and interpolate variables, apply them, and complete them from your shell. Not yet: `status`, `sync`, an interactive picker, history, or compose integration.
+> **v0.5.0.** In daily use. Groups, repos and workflows; four layers of variables with interpolation; `status`, `sync`, `audit` with restore, `$EDITOR` editing, dry runs, an interactive picker, compose services, and directory-aware completion for all of it.
 
 ## The problem
 
@@ -37,7 +37,9 @@ prizm platform local            # all four repos configured
 prizm platform frontend-only    # only the frontend; nothing else touched
 ```
 
-Variables merge in three layers, most specific winning: **repo-shared** (every workflow touching that repo) → **shared bag** (a named set scoped to a workflow and a subset of repos) → **repo + workflow** (the specific case).
+Variables merge in four layers, most specific winning: **group-global** (true everywhere in the group) → **repo-shared** (every workflow touching that repo) → **shared bag** (a named set scoped to a workflow and a subset of repos) → **repo + workflow** (the specific case).
+
+The split is what makes switching cheap. The wiring — `MONGO_URI=${_PRIZM_MONGO_URI}` — is written once per repo. Only the bag changes per environment, so the same line resolves to a different database in each.
 
 ## Derived shared values
 
@@ -69,6 +71,33 @@ DB_URL=postgres://svc_app:hunter2@localhost:5432/app
 
 Keys prefixed `_PRIZM_` are internal — referenceable from any template, never written to a file. Rotating the password is one edit in one place.
 
+## Day to day
+
+```bash
+prizm status platform             # which workflow each repo is on, and what has drifted
+prizm platform local --dry-run    # what would change, before it changes
+prizm sync platform backend       # you hand-edited a .env — keep it
+prizm edit platform backend       # open a whole layer in $EDITOR
+prizm audit platform backend --restore   # scrub the history, put a version back
+prizm platform                    # pick a workflow interactively; `e` edits instead
+```
+
+`sync` is the one worth knowing about. Hand-edit a managed `.env` and it works out which layer each edit belongs to. A value that came from a shared bag is the interesting case — it asks whether to change it for every repo using that bag, or pin it to this one.
+
+Every write records the state it produced, so `audit` can show what a layer looked like an hour ago and put it back. The restore is itself a version, so an unwanted one undoes the same way.
+
+## Services
+
+A workflow can carry a compose stack, brought up after the env files are written:
+
+```bash
+prizm docker platform local --compose ./local.yml --services db-tunnel
+prizm platform local     # writes the env files, then starts db-tunnel
+prizm down platform local
+```
+
+Docker is deliberately best-effort and reported separately: if the daemon is closed, the env files are still written and `up` still succeeds. Each workflow gets its own compose project, so two workflows can share a compose file without adopting each other's containers.
+
 ## Design notes
 
 A few decisions worth knowing before you rely on it:
@@ -78,6 +107,8 @@ A few decisions worth knowing before you rely on it:
 - **Nothing is overwritten silently.** An existing `.env` is backed up before prizm takes over, and hand-edits are reported rather than clobbered.
 - **Drift is reported, never auto-resolved.** Applying a workflow stays fast and predictable; reconciliation only happens when you ask for it.
 - **Everything scriptable.** Every interactive prompt has a flag equivalent, so prizm works the same in a shell alias or CI with no terminal attached.
+- **Ambiguity is refused, not guessed.** A command that could mean two repos, two layers, or two workflows stops and says which — quietly acting on the first one is how a destructive command becomes a surprise.
+- **Applies are exclusive.** Two `up` runs cannot interleave writes across the same repos; the second fails immediately rather than waiting.
 
 ## Install
 

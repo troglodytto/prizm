@@ -2,13 +2,15 @@
 
 Five phases. Each one ends with working, shippable software; none is a refactor-only step. The spec for all of them is `prizm-design-brainstorm-transcript.md`, plus the decisions recorded in each plan.
 
+**All five have shipped, as of v0.5.0.** The table is kept as the record of what each phase was for; the plans record the reasoning, including the places execution disagreed with them.
+
 | Phase | Plan | Delivers | Charm? |
 | --- | --- | --- | --- |
-| 1 | [`plans/2026-08-27-prizm-core.md`](superpowers/plans/2026-08-27-prizm-core.md) | Storage, groups/repos/workflows, three variable layers, interpolation, `up`, dynamic completion, shared output style | Lip Gloss only |
-| 2 | [`plans/2026-08-27-prizm-reconciliation.md`](superpowers/plans/2026-08-27-prizm-reconciliation.md) | History engine, drift detection, `status`, `sync`, `--dry-run`, `repair`, apply lock | No |
-| 3 | [`plans/2026-08-27-prizm-tui.md`](superpowers/plans/2026-08-27-prizm-tui.md) | The Charm layer: picker, multi-select, form, interactive `sync`, live `up` | Yes |
-| 4 | [`plans/2026-08-27-prizm-audit.md`](superpowers/plans/2026-08-27-prizm-audit.md) | `audit` version carousel, key-level diffs, `--restore` | Yes |
-| 5 | [`plans/2026-08-27-prizm-docker.md`](superpowers/plans/2026-08-27-prizm-docker.md) | Compose services per workflow, `up` bring-up, `down`, container status | Spinner only |
+| 1 ✅ | [`plans/2026-08-27-prizm-core.md`](superpowers/plans/2026-08-27-prizm-core.md) | Storage, groups/repos/workflows, three variable layers, interpolation, `up`, dynamic completion, shared output style | Lip Gloss only |
+| 2 ✅ | [`plans/2026-08-27-prizm-reconciliation.md`](superpowers/plans/2026-08-27-prizm-reconciliation.md) | History engine, drift detection, `status`, `sync`, `--dry-run`, `repair`, apply lock | No |
+| 3 ✅ | [`plans/2026-08-27-prizm-tui.md`](superpowers/plans/2026-08-27-prizm-tui.md) | The Charm layer: picker, multi-select, form, interactive `sync`, live `up` | Yes |
+| 4 ✅ | [`plans/2026-08-27-prizm-audit.md`](superpowers/plans/2026-08-27-prizm-audit.md) | `audit` version carousel, key-level diffs, `--restore` | Yes |
+| 5 ✅ | [`plans/2026-08-27-prizm-docker.md`](superpowers/plans/2026-08-27-prizm-docker.md) | Compose services per workflow, `up` bring-up, `down`, container status | Spinner only |
 
 ## Why this order
 
