@@ -19,6 +19,10 @@ type harness struct {
 	cwd string
 }
 
+// stamp is what prizm appends to every generated file so a consumer can tell
+// which workflow produced it. Tests that assert exact file content include it.
+const wfStamp = "PRIZM_WORKFLOW=local\n"
+
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 

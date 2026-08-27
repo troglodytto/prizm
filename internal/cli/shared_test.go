@@ -209,8 +209,8 @@ func TestSharedBagFeedsUpEndToEnd(t *testing.T) {
 
 	dsn := "postgres://svc_app:hunter2@localhost:5432/app"
 	for dir, want := range map[string]string{
-		beDir:   "DB_URL=" + dsn + "\n",
-		authDir: "DATABASE_URL=" + dsn + "\n",
+		beDir:   "DB_URL=" + dsn + "\n" + wfStamp,
+		authDir: "DATABASE_URL=" + dsn + "\n" + wfStamp,
 	} {
 		got, err := os.ReadFile(filepath.Join(dir, ".env"))
 		if err != nil {

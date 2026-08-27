@@ -8,7 +8,6 @@ import (
 
 	"github.com/troglodytto/prizm/internal/config"
 	"github.com/troglodytto/prizm/internal/drift"
-	"github.com/troglodytto/prizm/internal/resolve"
 	"github.com/troglodytto/prizm/internal/store"
 	"github.com/troglodytto/prizm/internal/style"
 )
@@ -171,15 +170,14 @@ func tagSuffix(tag string) string {
 
 // inspectRepo resolves what up would write for a repo, then compares it to disk.
 func inspectRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo) (drift.Report, error) {
-	templates, err := resolve.ForRepo(app.Store, wf, repo)
+	// buildEnv, not a second resolve of its own: the moment this diverges
+	// from what apply writes, drift starts reporting differences that are
+	// really just the two paths disagreeing. That is how the workflow stamp
+	// first showed up as a hand-added key.
+	expected, err := buildEnv(app, wf, repo)
 	if err != nil {
-		return drift.Report{}, err
-	}
-
-	// A repo that cannot resolve cannot be compared; report it as unapplied
-	// rather than failing the whole listing.
-	expanded, err := resolve.Expand(templates)
-	if err != nil {
+		// A repo that cannot resolve cannot be compared; report it as
+		// unapplied rather than failing the whole listing.
 		return drift.Report{Repo: repo, Link: drift.NoFile}, nil
 	}
 
@@ -187,5 +185,5 @@ func inspectRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo) (d
 	if err != nil {
 		return drift.Report{}, err
 	}
-	return drift.Inspect(repo, resolve.Emit(expanded), builtPath)
+	return drift.Inspect(repo, expected, builtPath)
 }

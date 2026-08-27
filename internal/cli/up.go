@@ -99,7 +99,7 @@ func previewWorkflow(app *App, g store.Group, wf store.Workflow) error {
 		// Checked before the diff: a repo that is already empty matches an
 		// empty expectation, so "up to date" would be true and useless. The
 		// gap is the thing a dry run before prod is being asked about.
-		if len(expected) == 0 {
+		if userVars(expected) == 0 {
 			empty++
 			app.row(col, style.Warn, repo.Name, "no variables for "+wf.Name)
 			continue
@@ -283,7 +283,41 @@ func buildEnv(app *App, wf store.Workflow, repo store.Repo) (map[string]string, 
 		return nil, err
 	}
 
-	return resolve.Emit(expanded), nil
+	vars := resolve.Emit(expanded)
+
+	// Stamp which workflow produced this file.
+	//
+	// A generated env file otherwise says nothing about where it came from,
+	// so a script cannot tell whether it is about to talk to a scratch
+	// database or production. With the stamp, a consumer can refuse to run
+	// against a tagged environment without being asked — and its absence is
+	// itself information: the file was not written by prizm.
+	vars[stampWorkflow] = wf.Name
+	if wf.Tag != "" {
+		vars[stampTag] = wf.Tag
+	}
+	return vars, nil
+}
+
+// Names deliberately outside the _PRIZM_ internal namespace: these are meant
+// to reach the file, which is the whole point of them.
+const (
+	stampWorkflow = "PRIZM_WORKFLOW"
+	stampTag      = "PRIZM_TAG"
+)
+
+// userVars counts what the person actually configured, ignoring the stamp
+// prizm adds itself. Without this a repo with no configuration at all still
+// looks populated, and the covered-but-empty warning — the thing that catches
+// a repo nobody set up for production — never fires again.
+func userVars(vars map[string]string) int {
+	n := 0
+	for key := range vars {
+		if key != stampWorkflow && key != stampTag {
+			n++
+		}
+	}
+	return n
 }
 
 // applyRepo resolves, expands and writes one repo's env file. Any failure
@@ -309,5 +343,5 @@ func applyRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo) (int
 		app.detail("  backed up existing %s → %s", repo.EnvFile, res.BackedUpTo)
 	}
 
-	return len(vars), app.Store.RecordApplied(repo.ID, wf.ID, res.BuiltPath, app.Now())
+	return userVars(vars), app.Store.RecordApplied(repo.ID, wf.ID, res.BuiltPath, app.Now())
 }

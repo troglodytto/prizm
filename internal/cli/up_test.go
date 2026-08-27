@@ -24,8 +24,8 @@ func TestUpWritesAndLinksEachRepo(t *testing.T) {
 	}
 
 	for dir, want := range map[string]string{
-		beDir: "PORT=8080\n",
-		feDir: "API_URL=http://localhost:8080\n",
+		beDir: "PORT=8080\n" + wfStamp,
+		feDir: "API_URL=http://localhost:8080\n" + wfStamp,
 	} {
 		link := filepath.Join(dir, ".env")
 		info, err := os.Lstat(link)
@@ -77,8 +77,8 @@ func TestUpResolvesSharedDerivedValuesOpaquely(t *testing.T) {
 
 	dsn := "postgres://svc_app:hunter2@localhost:5432/app"
 	for dir, want := range map[string]string{
-		beDir:   "DB_URL=" + dsn + "\n",
-		authDir: "DATABASE_URL=" + dsn + "\n",
+		beDir:   "DB_URL=" + dsn + "\n" + wfStamp,
+		authDir: "DATABASE_URL=" + dsn + "\n" + wfStamp,
 	} {
 		got, err := os.ReadFile(filepath.Join(dir, ".env"))
 		if err != nil {
@@ -396,5 +396,65 @@ func TestDryRunFlagsAnEmptyRepoEvenWhenNothingWouldChange(t *testing.T) {
 	}
 	if !strings.Contains(h.out.String(), "no variables for prod") {
 		t.Errorf("output = %q, want the gap flagged, not hidden behind 'up to date'", h.out.String())
+	}
+}
+
+func TestGeneratedFilesCarryTheWorkflowStamp(t *testing.T) {
+	h := newHarness(t)
+	dir := h.repoDir(t, "auth")
+
+	h.run(t, "init", "k")
+	h.run(t, "add-repo", "k", "auth", "--path", dir)
+	h.run(t, "add-workflow", "k", "production", "--tag", "prod", "--repos", "auth")
+	h.run(t, "var", "k", "auth", "PORT=4000")
+	h.run(t, "up", "k", "production", "--yes")
+
+	raw, err := os.ReadFile(filepath.Join(dir, ".env"))
+	if err != nil {
+		t.Fatalf("reading env: %v", err)
+	}
+	got := string(raw)
+
+	// A consumer has to be able to refuse to run against prod without being
+	// told which environment it is in.
+	for _, want := range []string{"PRIZM_WORKFLOW=production", "PRIZM_TAG=prod"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("env = %q, want it to contain %q", got, want)
+		}
+	}
+}
+
+func TestStampDoesNotMakeAnEmptyRepoLookConfigured(t *testing.T) {
+	h := newHarness(t)
+	aDir, bDir := h.repoDir(t, "a"), h.repoDir(t, "b")
+
+	h.run(t, "init", "k")
+	h.run(t, "add-repo", "k", "a", "--path", aDir)
+	h.run(t, "add-repo", "k", "b", "--path", bDir)
+	h.run(t, "add-workflow", "k", "prod", "--repos", "a,b")
+	h.run(t, "var", "k", "a", "PORT=4000")
+
+	h.run(t, "up", "k", "prod")
+
+	// b has no configuration of its own; the stamp must not disguise that.
+	if !strings.Contains(h.out.String(), "no variables for prod") {
+		t.Errorf("output = %q, want b still flagged as empty", h.out.String())
+	}
+}
+
+func TestStampIsNotTreatedAsAHandEdit(t *testing.T) {
+	h := newHarness(t)
+	dir := h.repoDir(t, "auth")
+
+	h.run(t, "init", "k")
+	h.run(t, "add-repo", "k", "auth", "--path", dir)
+	h.run(t, "add-workflow", "k", "local", "--repos", "auth")
+	h.run(t, "var", "k", "auth", "PORT=4000")
+	h.run(t, "up", "k", "local")
+
+	// sync must not try to pull prizm's own stamp back in as a user variable.
+	h.run(t, "sync", "k", "auth", "--yes")
+	if strings.Contains(h.out.String(), "PRIZM_WORKFLOW") {
+		t.Errorf("output = %q, want the stamp ignored as generated metadata", h.out.String())
 	}
 }
