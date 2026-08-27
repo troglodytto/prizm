@@ -72,29 +72,9 @@ neither.
 | **macOS** | Apple silicon and Intel |
 | **Windows** | not yet — the apply lock uses `flock`. [Open an issue](https://github.com/troglodytto/prizm/issues) if you want it |
 
-### Verifying a release
-
-Every build is attached to a [GitHub release](https://github.com/troglodytto/prizm/releases)
-alongside a `checksums.txt` and a detached GPG signature over it. One signature
-covers the whole release: change any archive and its hash stops matching;
-change the list of hashes and the signature breaks.
-
-```bash
-gpg --recv-keys 49B66FF00161FF5AF6587CB59083374841288B9D
-gpg --verify checksums.txt.asc checksums.txt
-sha256sum -c checksums.txt --ignore-missing
-```
-
-The installer does this for you when `gpg` is present and you already trust
-that key. It checks the signature came from a **known release fingerprint**,
-not merely from some key you happen to hold — otherwise a signature proves
-only that somebody signed something. Signing keys are rotated, and older
-releases stay signed by whichever key was current when they were published, so
-`install.sh` carries the full list. To refuse to install without one:
-
-```bash
-PRIZM_REQUIRE_SIG=1 sh install.sh
-```
+Builds are attached to each [GitHub release](https://github.com/troglodytto/prizm/releases)
+with checksums and a GPG signature; the installer verifies them, and
+[docs/verifying.md](docs/verifying.md) covers doing it by hand.
 
 Values are encrypted with a key from your OS keychain. The keychain is only
 consulted when a command actually reads or writes a value — `--version`,
