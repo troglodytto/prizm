@@ -14,8 +14,9 @@ import (
 
 func newStatusCmd(app *App) *cobra.Command {
 	return &cobra.Command{
-		Use:   "status [group]",
-		Short: "Show which workflow each repo is on, and whether it has drifted",
+		Use:               "status [group]",
+		ValidArgsFunction: positions(app, compGroup),
+		Short:             "Show which workflow each repo is on, and whether it has drifted",
 		Long: "After a few days of switching between workflows you stop remembering\n" +
 			"which one each repo is actually sitting on. This answers that, and\n" +
 			"flags any repo whose env file no longer matches what prizm would write.",

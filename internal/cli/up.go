@@ -21,12 +21,10 @@ func newUpCmd(app *App) *cobra.Command {
 	var yes bool
 
 	cmd := &cobra.Command{
-		Use:   "up [group] <workflow>",
-		Short: "Apply a workflow: build and link every covered repo's env file",
-		Args:  usageArgs(cobra.RangeArgs(1, 2)),
-		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-			return app.completeGroupThenWorkflow(args, toComplete)
-		},
+		Use:               "up [group] <workflow>",
+		Short:             "Apply a workflow: build and link every covered repo's env file",
+		Args:              usageArgs(cobra.RangeArgs(1, 2)),
+		ValidArgsFunction: positions(app, compGroupOrWorkflow, compWorkflow),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			g, rest, err := app.splitGroup(args, 1)
 			if err != nil {

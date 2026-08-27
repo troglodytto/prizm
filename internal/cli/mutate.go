@@ -16,8 +16,9 @@ func newRenameCmd(app *App) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "rename [group] <new-name>",
-		Short: "Rename a group, or one of its repos or workflows",
+		Use:               "rename [group] <new-name>",
+		ValidArgsFunction: positions(app, compGroup, compNone),
+		Short:             "Rename a group, or one of its repos or workflows",
 		Long: "Renames the group by default. Use --repo or --workflow to rename one\n" +
 			"of its members instead.\n\n" +
 			"  prizm rename acme platform            # the group\n" +
@@ -81,9 +82,10 @@ func newRemoveCmd(app *App) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:     "rm [group]",
-		Short:   "Remove a group, or one of its repos, workflows or bags",
-		Aliases: []string{"remove"},
+		Use:               "rm [group]",
+		ValidArgsFunction: positions(app, compGroup),
+		Short:             "Remove a group, or one of its repos, workflows or bags",
+		Aliases:           []string{"remove"},
 		Long: "Removes the whole group by default, with everything under it. Use a\n" +
 			"flag to remove one member instead.\n\n" +
 			"Env files already written are left alone: deleting configuration\n" +
@@ -170,7 +172,29 @@ func newUnsetCmd(app *App) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "unset [group] [repo] KEY [KEY...]",
+		Use: "unset [group] [repo] KEY [KEY...]",
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			// The tail is keys, so once a group and repo are in hand every
+			// further slot completes the variables actually set there.
+			group := app.scopeGroup(args)
+			rest := app.scopeRest(args)
+			wf, _ := cmd.Flags().GetString("workflow")
+
+			switch len(args) {
+			case 0:
+				return app.completeGroups(toComplete)
+			case 1:
+				if len(rest) == 0 {
+					return app.completeRepos(group, toComplete)
+				}
+				return app.completeVarKeys(group, rest[0], wf, toComplete)
+			default:
+				if len(rest) == 0 {
+					return nil, noFiles
+				}
+				return app.completeVarKeys(group, rest[0], wf, toComplete)
+			}
+		},
 		Short: "Remove variables, mirroring `prizm var`",
 		Args:  usageArgs(cobra.MinimumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {

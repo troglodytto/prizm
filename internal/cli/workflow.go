@@ -17,8 +17,9 @@ func newAddWorkflowCmd(app *App) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-workflow <group> <workflow>",
-		Short: "Define a workflow: a named bundle of repos",
+		Use:               "add-workflow <group> <workflow>",
+		ValidArgsFunction: positions(app, compGroup, compNone),
+		Short:             "Define a workflow: a named bundle of repos",
 		Long: "Without --repos the workflow covers every repo currently in the group.\n" +
 			"Pass --repos to cover an explicit subset, e.g. a frontend-only workflow.",
 		Args: usageArgs(cobra.ExactArgs(2)),

@@ -26,10 +26,11 @@ func newInitCmd(app *App) *cobra.Command {
 
 func newLsCmd(app *App) *cobra.Command {
 	return &cobra.Command{
-		Use:     "ls [group]",
-		Short:   "List groups, or one group's repos and workflows",
-		Aliases: []string{"list"},
-		Args:    usageArgs(cobra.MaximumNArgs(1)),
+		Use:               "ls [group]",
+		ValidArgsFunction: positions(app, compGroup),
+		Short:             "List groups, or one group's repos and workflows",
+		Aliases:           []string{"list"},
+		Args:              usageArgs(cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return listGroups(app)

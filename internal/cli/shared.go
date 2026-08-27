@@ -23,8 +23,9 @@ func newSharedAddCmd(app *App) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "shared-add [group] <workflow> <name>",
-		Short: "Create a file-backed shared variable bag",
+		Use:               "shared-add [group] <workflow> <name>",
+		ValidArgsFunction: positions(app, compGroup, compWorkflow, compNone),
+		Short:             "Create a file-backed shared variable bag",
 		Long: "The bag is backed by a real .env file you edit directly. Run\n" +
 			"`prizm shared-sync` afterwards to reconcile your edits into prizm.",
 		Args: usageArgs(cobra.RangeArgs(2, 3)),
@@ -79,9 +80,10 @@ func newSharedAddCmd(app *App) *cobra.Command {
 
 func newSharedEditCmd(app *App) *cobra.Command {
 	return &cobra.Command{
-		Use:   "shared-edit [group] <workflow> <name>",
-		Short: "Open a shared bag's file in $EDITOR",
-		Args:  usageArgs(cobra.RangeArgs(2, 3)),
+		Use:               "shared-edit [group] <workflow> <name>",
+		ValidArgsFunction: positions(app, compGroup, compWorkflow, compBag),
+		Short:             "Open a shared bag's file in $EDITOR",
+		Args:              usageArgs(cobra.RangeArgs(2, 3)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, _, sg, err := resolveBag(app, args)
 			if err != nil {
@@ -107,9 +109,10 @@ func newSharedEditCmd(app *App) *cobra.Command {
 
 func newSharedLsCmd(app *App) *cobra.Command {
 	return &cobra.Command{
-		Use:   "shared-ls [group]",
-		Short: "List shared bags and the files backing them",
-		Args:  usageArgs(cobra.MaximumNArgs(1)),
+		Use:               "shared-ls [group]",
+		ValidArgsFunction: positions(app, compGroup),
+		Short:             "List shared bags and the files backing them",
+		Args:              usageArgs(cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			bags, err := app.Store.AllSharedGroups()
 			if err != nil {
@@ -157,8 +160,9 @@ func newSharedSyncCmd(app *App) *cobra.Command {
 	var yes bool
 
 	cmd := &cobra.Command{
-		Use:   "shared-sync [group] [workflow] [name]",
-		Short: "Reconcile shared bag files into prizm",
+		Use:               "shared-sync [group] [workflow] [name]",
+		ValidArgsFunction: positions(app, compGroup, compWorkflow, compBag),
+		Short:             "Reconcile shared bag files into prizm",
 		Long: "The file is the source of truth: a key removed from it is removed from\n" +
 			"the bag. Nothing is written without confirmation.",
 		Args: usageArgs(cobra.MaximumNArgs(3)),

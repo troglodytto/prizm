@@ -22,8 +22,9 @@ func newAddRepoCmd(app *App) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "add-repo <group> [name|path]",
-		Short: "Register a repo in a group",
+		Use:               "add-repo <group> [name|path]",
+		ValidArgsFunction: positions(app, compGroup, compFiles),
+		Short:             "Register a repo in a group",
 		Long: "The second argument is a path when it looks like one (`.`, `./x`, `../x`,\n" +
 			"`~/x`, or anything containing a slash) and a name otherwise.\n\n" +
 			"  prizm add-repo acme               # this directory, name from it\n" +

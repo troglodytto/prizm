@@ -13,8 +13,9 @@ func newRepairCmd(app *App) *cobra.Command {
 	var path string
 
 	cmd := &cobra.Command{
-		Use:   "repair [group] <repo>",
-		Short: "Re-point a repo whose checkout moved",
+		Use:               "repair [group] <repo>",
+		ValidArgsFunction: positions(app, compGroup, compRepo),
+		Short:             "Re-point a repo whose checkout moved",
 		Long: "Repo paths are a stable contract, so nothing else changes one. This is\n" +
 			"the escape hatch for when a checkout genuinely moves.\n\n" +
 			"Defaults to the current directory, so the usual form is to cd into the\n" +

@@ -84,7 +84,17 @@ func NewRootCmd(app *App) *cobra.Command {
 		return usageError{err: err}
 	})
 
-	root.AddCommand(
+	for _, c := range commandsOf(app) {
+		registerScopedFlags(app, c)
+		root.AddCommand(c)
+	}
+	return root
+}
+
+// commandsOf builds the command set, so flag completers can be wired to every
+// one of them in a single place rather than remembered per command.
+func commandsOf(app *App) []*cobra.Command {
+	return []*cobra.Command{
 		newInitCmd(app),
 		newAddRepoCmd(app),
 		newAddWorkflowCmd(app),
@@ -104,8 +114,7 @@ func NewRootCmd(app *App) *cobra.Command {
 		newSharedEditCmd(app),
 		newSharedLsCmd(app),
 		newSharedSyncCmd(app),
-	)
-	return root
+	}
 }
 
 // Execute wires real dependencies and returns a process exit code.

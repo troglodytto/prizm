@@ -18,8 +18,9 @@ func newEditWorkflowCmd(app *App) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "edit-workflow [group] <workflow>",
-		Short: "Change a workflow's name, tag or repos",
+		Use:               "edit-workflow [group] <workflow>",
+		ValidArgsFunction: positions(app, compGroup, compWorkflow),
+		Short:             "Change a workflow's name, tag or repos",
 		Long: "With no flags and a terminal, opens the repo checkbox list with the\n" +
 			"current members ticked.\n\n" +
 			"  prizm edit-workflow acme local                    pick repos\n" +

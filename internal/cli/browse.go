@@ -15,9 +15,10 @@ import (
 // resolves to: `prizm XYZ` drills straight into XYZ's workflows.
 func newPickCmd(app *App) *cobra.Command {
 	return &cobra.Command{
-		Use:     "pick [group]",
-		Short:   "Choose a workflow interactively and apply it",
-		Aliases: []string{"browse"},
+		Use:               "pick [group]",
+		ValidArgsFunction: positions(app, compGroup),
+		Short:             "Choose a workflow interactively and apply it",
+		Aliases:           []string{"browse"},
 		Long: "Walks group → workflow → apply. Naming a group skips the first step,\n" +
 			"which is what `prizm <group>` does.\n\n" +
 			"Without a terminal it lists instead of prompting, so it stays usable\n" +

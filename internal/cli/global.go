@@ -15,8 +15,9 @@ import (
 
 func newGlobalCmd(app *App) *cobra.Command {
 	return &cobra.Command{
-		Use:   "global [group]",
-		Short: "Edit the variables shared across every workflow in a group",
+		Use:               "global [group]",
+		ValidArgsFunction: positions(app, compGroup),
+		Short:             "Edit the variables shared across every workflow in a group",
 		Long: "Group-global variables are facts about the whole group — a shared\n" +
 			"database cluster's username, an AWS account — true in every workflow\n" +
 			"and every repo.\n\n" +

@@ -16,8 +16,9 @@ func newVarCmd(app *App) *cobra.Command {
 	var workflow string
 
 	cmd := &cobra.Command{
-		Use:   "var [group] [repo] KEY=VALUE [KEY=VALUE...]",
-		Short: "Set variables on a repo",
+		Use:               "var [group] [repo] KEY=VALUE [KEY=VALUE...]",
+		ValidArgsFunction: positions(app, compGroup, compRepo, compNone),
+		Short:             "Set variables on a repo",
 		Long: "Without --workflow the variables apply in every workflow that touches\n" +
 			"this repo. With --workflow they apply only there, and win over both the\n" +
 			"repo-shared layer and any shared bag.\n\n" +
@@ -59,8 +60,9 @@ func newImportCmd(app *App) *cobra.Command {
 	var workflow string
 
 	cmd := &cobra.Command{
-		Use:   "import [group] [repo] <file>",
-		Short: "Load an existing .env file into prizm",
+		Use:               "import [group] [repo] <file>",
+		ValidArgsFunction: positions(app, compGroup, compRepo, compFiles),
+		Short:             "Load an existing .env file into prizm",
 		Long: "Most people already have .env.local files sitting in each repo; this is\n" +
 			"how prizm gets populated the first time.",
 		Args: usageArgs(cobra.RangeArgs(1, 3)),
