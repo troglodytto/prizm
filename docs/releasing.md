@@ -59,19 +59,32 @@ gh secret set GPG_PRIVATE_KEY   # paste the block, including BEGIN/END lines
 gh secret set GPG_PASSPHRASE    # omit if the key has no passphrase
 ```
 
-The fingerprint is pinned in [`install.sh`](../install.sh) as `SIGNING_KEY`.
-If the signing key ever changes, that constant changes with it — the installer
-verifies against that fingerprint specifically, not against any key the user
-happens to hold.
+## Rotating the signing key
 
-**The key expires.** A signature made before expiry still verifies afterwards,
-but `gpg --recv-keys` will hand new users an expired key and they will
-reasonably not trust it. Extend it before it lapses:
+`install.sh` holds `SIGNING_KEYS`, a list of fingerprints — not one. Releases
+are immutable: a version stays signed by whichever key was current when it was
+published, so a key has to keep verifying long after it stops signing.
 
-```bash
-gpg --quick-set-expire 49B66FF00161FF5AF6587CB59083374841288B9D 1y
-gpg --send-keys 49B66FF00161FF5AF6587CB59083374841288B9D
-```
+To rotate:
+
+1. Create the new key.
+2. **Add** its fingerprint to the top of `SIGNING_KEYS` in `install.sh`. Do not
+   remove the old one — every release it signed would stop verifying for anyone
+   installing that version today.
+3. Point `git config user.signingkey` at it, and replace the `GPG_PRIVATE_KEY`
+   secret.
+4. Publish it: `gpg --send-keys <new fingerprint>`.
+5. Update the fingerprint in the README's verification instructions.
+
+A fingerprint only leaves the list when every release it signed is gone, which
+in practice means never.
+
+**The current key expires 2026-10-26**, deliberately. Signatures made before
+expiry keep verifying afterwards; the thing that breaks is `gpg --recv-keys`
+for a new user, who gets an expired key and reasonably declines to trust it.
+Rotate before then, or extend with
+`gpg --quick-set-expire <fingerprint> 1y` if you change your mind — extending
+keeps the same fingerprint, so nothing else needs touching.
 
 ## Checking a release afterwards
 

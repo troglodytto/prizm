@@ -25,6 +25,9 @@
 #
 #   gpg --recv-keys 49B66FF00161FF5AF6587CB59083374841288B9D
 #   PRIZM_REQUIRE_SIG=1 sh install.sh
+#
+# More than one fingerprint may be listed below: signing keys get rotated, and
+# a release stays signed by whichever key was current when it was published.
 
 set -eu
 
@@ -35,10 +38,17 @@ BIN="prizm"
 : "${PRIZM_VERSION:=}"
 : "${PRIZM_REQUIRE_SIG:=0}"
 
-# The key releases are signed with. Verified against this fingerprint rather
-# than against "any key that happens to be in your keyring" — otherwise a
-# signature proves only that somebody signed something.
-SIGNING_KEY="49B66FF00161FF5AF6587CB59083374841288B9D"
+# Fingerprints that have signed releases, newest first.
+#
+# Verified against this list rather than against "any key in your keyring" —
+# otherwise a signature proves only that somebody signed something.
+#
+# A key stays listed after it is rotated out. Releases it signed are already
+# published and immutable, so dropping it would mean older versions stop
+# verifying for anyone installing them today.
+SIGNING_KEYS="
+49B66FF00161FF5AF6587CB59083374841288B9D
+"
 
 tmp=""
 cleanup() { [ -n "${tmp}" ] && rm -rf "${tmp}"; }
@@ -122,16 +132,29 @@ verify_signature() {
 		return
 	fi
 
-	if ! gpg --list-keys "${SIGNING_KEY}" >/dev/null 2>&1; then
-		require_sig_or_warn "the signing key is not in your keyring"
+	held=""
+	for fpr in ${SIGNING_KEYS}; do
+		gpg --list-keys "${fpr}" >/dev/null 2>&1 && held="${held} ${fpr}"
+	done
+	if [ -z "${held}" ]; then
+		require_sig_or_warn "no release signing key is in your keyring"
 		return
 	fi
 
-	gpg --status-fd 1 --verify "${tmp}/checksums.txt.asc" "${tmp}/checksums.txt" 2>/dev/null |
-		grep -q "^\[GNUPG:\] VALIDSIG ${SIGNING_KEY}" ||
-		die "signature does not verify against ${SIGNING_KEY} — do not install this"
+	status="$(gpg --status-fd 1 --verify \
+		"${tmp}/checksums.txt.asc" "${tmp}/checksums.txt" 2>/dev/null)"
 
-	say "signature ok (${SIGNING_KEY})"
+	# Any listed key is acceptable: an older release is signed by whichever
+	# key was current when it was cut, and that signature stays valid.
+	for fpr in ${held}; do
+		case "${status}" in
+			*"[GNUPG:] VALIDSIG ${fpr}"*)
+				say "signature ok (${fpr})"
+				return ;;
+		esac
+	done
+
+	die "signature is not from a known prizm release key — do not install this"
 }
 
 require_sig_or_warn() {
@@ -139,7 +162,7 @@ require_sig_or_warn() {
 		die "PRIZM_REQUIRE_SIG=1 but $1"
 	fi
 	say "note: signature not checked — $1"
-	say "      to verify: gpg --recv-keys ${SIGNING_KEY}"
+	say "      to verify: gpg --recv-keys $(printf '%s' "${SIGNING_KEYS}" | tr -s '[:space:]' ' ')"
 }
 
 verify() {

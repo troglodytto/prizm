@@ -86,9 +86,11 @@ sha256sum -c checksums.txt --ignore-missing
 ```
 
 The installer does this for you when `gpg` is present and you already trust
-that key. It checks the signature came from **that** fingerprint, not merely
-from some key you happen to hold — otherwise a signature proves only that
-somebody signed something. To refuse to install without one:
+that key. It checks the signature came from a **known release fingerprint**,
+not merely from some key you happen to hold — otherwise a signature proves
+only that somebody signed something. Signing keys are rotated, and older
+releases stay signed by whichever key was current when they were published, so
+`install.sh` carries the full list. To refuse to install without one:
 
 ```bash
 PRIZM_REQUIRE_SIG=1 sh install.sh
