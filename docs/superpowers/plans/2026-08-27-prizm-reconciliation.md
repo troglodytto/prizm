@@ -1,7 +1,5 @@
 # prizm Phase 2 — Reconciliation & Visibility Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Give prizm memory and eyesight — record every variable change as a snapshot, detect when a repo's env file has drifted from what prizm would generate, show that state with `prizm status`, and reconcile hand-edits back into the right layer with `prizm sync`.
 
 **Architecture:** Three new pure-ish engines sitting on Phase 1's store. `resolve` gains *attribution* — which layer defined the winning template for a key — because reconciliation is meaningless without knowing where a value came from. `drift` compares what is on disk against what `up` would write right now. `syncplan` turns a drift report into a list of classified, explainable actions. The commands (`status`, `sync`, `dry-run`, `repair`) are thin renderers over those three. Everything in this phase is plain text; Phase 3 replaces the rendering, not the logic.

@@ -1,7 +1,5 @@
 # Retire global.env Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Make the database the sole source of truth for the group-global variable layer, so a bag `shared-sync` can no longer silently delete every group-global variable.
 
 **Architecture:** The group layer is currently backed by a file (`shared/<group>/global.env`) that only `sync` keeps in step — `var --global`, `unset --global` and `edit --global` all leave it stale, and `shared-sync` then reconciles the stale file over the database. Rather than add the missing writes in three more places, delete the file layer: point `prizm global` at the same database-backed `$EDITOR` round-trip `prizm edit --global` already uses, stop `shared-sync` touching the group layer, then remove the now-dead file machinery.
