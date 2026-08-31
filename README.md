@@ -306,10 +306,17 @@ owner-only:
 | `prizm.db` | groups, repos, workflows, variables — values encrypted |
 | `shared/<group>/` | the bag files you edit by hand |
 | `built/<group>/<workflow>/` | the generated env files your repos link to |
+| `backups/<group>/` | env files prizm displaced, named `repo__workflow__file__timestamp` |
 
-A managed repo's `.env` is a **symlink** into `built/`. The first time prizm
-takes over a repo that already had a real `.env`, it is renamed to
-`.env.prizm-backup.<timestamp>` rather than replaced.
+A managed repo's `.env` is a **symlink** into `built/`. When prizm takes over a
+repo that has a real `.env` — the first time, or after you hand-edit one — the
+original is moved into `backups/` rather than replaced. Your repos stay clean.
+
+`sync` is the exception, and deliberately: its whole job is reading your edit
+into prizm, so once it has, the displaced file is a copy of something already
+saved and is dropped instead of kept. If `sync` *skips* an edit — an ambiguous
+one it will not guess about — that value exists only in the file, so the backup
+is kept.
 
 Older versions also kept the group-global layer in `shared/<group>/global.env`,
 loaded by `shared-sync`. That layer now lives in `prizm.db` and applies the

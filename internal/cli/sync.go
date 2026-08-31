@@ -172,7 +172,23 @@ func syncRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo, yes, 
 
 	// Regenerate the file so it matches prizm exactly again — sorted, with
 	// internal values stripped and skipped edits undone.
-	if _, err := applyRepo(app, g, wf, repo); err != nil {
+	//
+	// The displaced copy is only redundant when nothing of the user's is left
+	// in it. A skipped item is about to be undone by this very rewrite, so it
+	// keeps the backup — but only when it carries a value. An empty To means
+	// the file dropped a key prizm still holds, so regenerating restores it
+	// and there is nothing to preserve; that is what a wholesale rewrite does
+	// to prizm's own PRIZM_WORKFLOW stamp, and backing the file up for it
+	// would reintroduce exactly the clutter this avoids.
+	displaced := dropDisplaced
+	for _, item := range plan.Items {
+		if decisions[item.Key] == syncplan.DecideSkip && item.To != "" {
+			displaced = keepDisplaced
+			break
+		}
+	}
+
+	if _, err := applyRepo(app, g, wf, repo, displaced); err != nil {
 		return false, err
 	}
 

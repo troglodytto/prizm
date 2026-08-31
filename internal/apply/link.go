@@ -5,13 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/troglodytto/prizm/internal/config"
 )
-
-// backupStamp is the suffix format for a displaced env file.
-const backupStamp = "20060102-150405"
 
 // Result describes what Apply did, for reporting back to the user.
 type Result struct {
@@ -25,7 +21,12 @@ type Result struct {
 // Order matters: the build file is written first, any pre-existing real file
 // is moved aside, and only then is the symlink swapped in atomically. There is
 // never a moment when the repo has no env file.
-func Apply(builtPath, content, repoPath, envFile string, now time.Time) (Result, error) {
+//
+// backupPath is where a displaced real file is kept. Empty means the caller
+// already holds that content — `sync` has read the edit into prizm — so the
+// file is dropped instead. Only a caller that has genuinely captured the
+// content may pass empty; for everyone else this is the user's only copy.
+func Apply(builtPath, content, repoPath, envFile, backupPath string) (Result, error) {
 	res := Result{BuiltPath: builtPath, LinkPath: filepath.Join(repoPath, envFile)}
 
 	if info, err := os.Stat(repoPath); err != nil || !info.IsDir() {
@@ -39,7 +40,7 @@ func Apply(builtPath, content, repoPath, envFile string, now time.Time) (Result,
 		return Result{}, fmt.Errorf("writing %s: %w", builtPath, err)
 	}
 
-	backup, err := preserveExisting(res.LinkPath, now)
+	backup, err := preserveExisting(res.LinkPath, backupPath)
 	if err != nil {
 		return Result{}, err
 	}
@@ -75,7 +76,8 @@ func writeFileAtomic(path, content string) error {
 
 // preserveExisting moves a real file out of the way and returns where it went.
 // Symlinks are left for the rename to replace; absent targets are a no-op.
-func preserveExisting(target string, now time.Time) (string, error) {
+// An empty backupPath drops the file instead of keeping it — see Apply.
+func preserveExisting(target, backupPath string) (string, error) {
 	info, err := os.Lstat(target)
 	if os.IsNotExist(err) {
 		return "", nil
@@ -87,11 +89,25 @@ func preserveExisting(target string, now time.Time) (string, error) {
 		return "", nil
 	}
 
+	// No backup wanted: the caller has this content already, so the file is
+	// redundant rather than precious. Removing it is what lets the symlink
+	// take its place.
+	if backupPath == "" {
+		if err := os.Remove(target); err != nil {
+			return "", fmt.Errorf("removing %s: %w", target, err)
+		}
+		return "", nil
+	}
+
+	if err := config.EnsureDir(filepath.Dir(backupPath)); err != nil {
+		return "", fmt.Errorf("creating backup directory: %w", err)
+	}
+
 	// The stamp is second-resolution, and os.Rename replaces its destination
 	// without complaint — so two applies inside one second had the second
 	// backup silently destroy the first. The mechanism that exists to
 	// preserve a file was the thing deleting it. Find a free name instead.
-	backup, err := freeBackupPath(target, now)
+	backup, err := freeBackupPath(backupPath)
 	if err != nil {
 		return "", err
 	}
@@ -103,19 +119,18 @@ func preserveExisting(target string, now time.Time) (string, error) {
 
 // freeBackupPath returns a backup path that does not already exist, adding a
 // numeric suffix when the timestamp alone collides.
-func freeBackupPath(target string, now time.Time) (string, error) {
-	base := fmt.Sprintf("%s.prizm-backup.%s", target, now.Format(backupStamp))
-	if _, err := os.Lstat(base); os.IsNotExist(err) {
-		return base, nil
+func freeBackupPath(want string) (string, error) {
+	if _, err := os.Lstat(want); os.IsNotExist(err) {
+		return want, nil
 	}
 
 	for n := 2; n < 1000; n++ {
-		candidate := fmt.Sprintf("%s.%d", base, n)
+		candidate := fmt.Sprintf("%s.%d", want, n)
 		if _, err := os.Lstat(candidate); os.IsNotExist(err) {
 			return candidate, nil
 		}
 	}
-	return "", fmt.Errorf("cannot find a free backup name beside %s", target)
+	return "", fmt.Errorf("cannot find a free backup name at %s", want)
 }
 
 // symlinkAtomic creates the link under a temp name, then renames it into place,
