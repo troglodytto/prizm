@@ -311,6 +311,11 @@ A managed repo's `.env` is a **symlink** into `built/`. The first time prizm
 takes over a repo that already had a real `.env`, it is renamed to
 `.env.prizm-backup.<timestamp>` rather than replaced.
 
+Older versions also kept the group-global layer in `shared/<group>/global.env`,
+loaded by `shared-sync`. That layer now lives in `prizm.db` and applies the
+moment you save, so a `global.env` left in your data directory is inert and can
+be deleted.
+
 Values are AES-256-GCM encrypted with a key held in your OS keychain; variable
 *names* stay in plaintext, which is what keeps shell completion instant. Nothing
 is sent anywhere — prizm has no network access and no account.
