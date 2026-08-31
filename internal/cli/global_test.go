@@ -32,8 +32,8 @@ func TestGlobalWritesStraightToTheDatabase(t *testing.T) {
 	}
 }
 
-// A bag sync must not touch the group layer. It used to: shared-sync called
-// syncAllGlobals, which reconciled a global.env that no direct edit path ever
+// A bag sync must not touch the group layer. It used to: shared-sync
+// reconciled a group's global.env, which no direct edit path ever
 // rewrote — so the stale file's silence deleted every group variable.
 func TestBagSyncLeavesGroupGlobalsAlone(t *testing.T) {
 	h := newHarness(t)

@@ -381,17 +381,10 @@ func applyItem(app *App, wf store.Workflow, repo store.Repo, item syncplan.Item)
 
 // writeSharedValue updates a group-global or shared-bag variable, keeping the
 // bag's backing file in step. Without that the next `shared-sync` would read
-// the stale file and quietly revert this.
+// the stale file and quietly revert this. The group layer has no file.
 func writeSharedValue(app *App, origin resolve.Origin, key, value string) error {
 	if origin.Kind == resolve.LayerGroup {
-		if err := app.Store.SetGroupVar(origin.GroupID, key, value); err != nil {
-			return err
-		}
-		path, err := groupFilePath(app, origin.GroupID)
-		if err != nil || path == "" {
-			return err
-		}
-		return patchKeyInFile(path, key, value)
+		return app.Store.SetGroupVar(origin.GroupID, key, value)
 	}
 
 	if origin.SharedGroupID == 0 {

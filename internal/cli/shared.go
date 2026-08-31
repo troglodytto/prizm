@@ -340,29 +340,6 @@ func sameSet(a, b []string) bool {
 	return true
 }
 
-// syncAllGlobals reconciles the group file for whichever groups this
-// invocation covers.
-func syncAllGlobals(app *App, args []string, yes bool) error {
-	if len(args) > 0 {
-		g, _, err := app.splitGroup(args, len(args)-1)
-		if err != nil {
-			return err
-		}
-		return syncGlobal(app, g, yes)
-	}
-
-	groups, err := app.Store.ListGroups()
-	if err != nil {
-		return err
-	}
-	for _, g := range groups {
-		if err := syncGlobal(app, g, yes); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // selectBags narrows the bags to sync from optional group/workflow/name args.
 func selectBags(app *App, args []string) ([]store.SharedGroupRef, error) {
 	all, err := app.Store.AllSharedGroups()
