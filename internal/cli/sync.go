@@ -172,7 +172,23 @@ func syncRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo, yes, 
 
 	// Regenerate the file so it matches prizm exactly again — sorted, with
 	// internal values stripped and skipped edits undone.
-	if _, err := applyRepo(app, g, wf, repo); err != nil {
+	//
+	// The displaced copy is only redundant when nothing of the user's is left
+	// in it. A skipped item is about to be undone by this very rewrite, so it
+	// keeps the backup — but only when it carries a value. An empty To means
+	// the file dropped a key prizm still holds, so regenerating restores it
+	// and there is nothing to preserve; that is what a wholesale rewrite does
+	// to prizm's own PRIZM_WORKFLOW stamp, and backing the file up for it
+	// would reintroduce exactly the clutter this avoids.
+	displaced := dropDisplaced
+	for _, item := range plan.Items {
+		if decisions[item.Key] == syncplan.DecideSkip && item.To != "" {
+			displaced = keepDisplaced
+			break
+		}
+	}
+
+	if _, err := applyRepo(app, g, wf, repo, displaced); err != nil {
 		return false, err
 	}
 
@@ -381,17 +397,10 @@ func applyItem(app *App, wf store.Workflow, repo store.Repo, item syncplan.Item)
 
 // writeSharedValue updates a group-global or shared-bag variable, keeping the
 // bag's backing file in step. Without that the next `shared-sync` would read
-// the stale file and quietly revert this.
+// the stale file and quietly revert this. The group layer has no file.
 func writeSharedValue(app *App, origin resolve.Origin, key, value string) error {
 	if origin.Kind == resolve.LayerGroup {
-		if err := app.Store.SetGroupVar(origin.GroupID, key, value); err != nil {
-			return err
-		}
-		path, err := groupFilePath(app, origin.GroupID)
-		if err != nil || path == "" {
-			return err
-		}
-		return patchKeyInFile(path, key, value)
+		return app.Store.SetGroupVar(origin.GroupID, key, value)
 	}
 
 	if origin.SharedGroupID == 0 {

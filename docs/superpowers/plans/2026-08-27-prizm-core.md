@@ -1,7 +1,5 @@
 # prizm Core Implementation Plan (Phase 1)
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Build the `prizm` walking skeleton — a Go CLI that stores groups, repos, workflows and layered env vars in an encrypted local SQLite DB, resolves them into a single env file per repo, symlinks it into place with `prizm <group> up <workflow>`, and offers directory-aware dynamic shell tab-completion.
 
 **Architecture:** A single static Go binary. Cobra owns the command tree and the dynamic completion hooks. All persistent state lives in one SQLite file (cgo driver, real C SQLite) under `$XDG_DATA_HOME/prizm/`. Variable *values* are encrypted at rest with AES-256-GCM using a key held in the OS keychain; all metadata (group/repo/workflow names, paths) stays plaintext so completion queries stay fast. `up` resolves three variable layers into one map, renders it to a built file under the prizm data dir, and atomically points `<repo>/.env` at it via symlink. Pure logic (parsing, rendering, merging, ranking, arg rewriting) lives in dependency-free packages that are unit-tested exhaustively; the store and CLI are thin shells over them.

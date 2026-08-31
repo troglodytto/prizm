@@ -182,10 +182,6 @@ func newSharedSyncCmd(app *App) *cobra.Command {
 			"the bag. Nothing is written without confirmation.",
 		Args: usageArgs(cobra.MaximumNArgs(3)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := syncAllGlobals(app, args, yes); err != nil {
-				return err
-			}
-
 			bags, err := selectBags(app, args)
 			if err != nil {
 				return err
@@ -269,8 +265,8 @@ func syncBag(app *App, bag store.SharedGroupRef, yes bool) error {
 	return nil
 }
 
-// renderVarDiff prints a key-level diff. Shared by bags and the group file so
-// every reconciliation in prizm reads the same.
+// renderVarDiff prints a key-level diff. Used by the bag sync path so every
+// bag reconciliation in prizm reads the same.
 func renderVarDiff(app *App, diff sharedfile.Diff) {
 	for _, key := range diff.Added {
 		app.say("  " + style.Row(style.Add, key, ""))
@@ -342,29 +338,6 @@ func sameSet(a, b []string) bool {
 		}
 	}
 	return true
-}
-
-// syncAllGlobals reconciles the group file for whichever groups this
-// invocation covers.
-func syncAllGlobals(app *App, args []string, yes bool) error {
-	if len(args) > 0 {
-		g, _, err := app.splitGroup(args, len(args)-1)
-		if err != nil {
-			return err
-		}
-		return syncGlobal(app, g, yes)
-	}
-
-	groups, err := app.Store.ListGroups()
-	if err != nil {
-		return err
-	}
-	for _, g := range groups {
-		if err := syncGlobal(app, g, yes); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // selectBags narrows the bags to sync from optional group/workflow/name args.

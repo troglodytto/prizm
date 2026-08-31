@@ -251,7 +251,7 @@ func applyWorkflow(app *App, g store.Group, wf store.Workflow) error {
 
 	failed, empty := 0, 0
 	for _, repo := range repos {
-		written, err := applyRepo(app, g, wf, repo)
+		written, err := applyRepo(app, g, wf, repo, keepDisplaced)
 		if err != nil {
 			failed++
 			app.row(col, style.Fail, repo.Name, err.Error())
@@ -346,9 +346,26 @@ func userVars(vars map[string]string) int {
 	return n
 }
 
+// displacedCopy says what to do with a real env file this apply moves aside.
+//
+// It is a named type because the two cases are not interchangeable and a bare
+// bool at the call site would not say which is which: dropping a copy prizm
+// does not already hold destroys the user's only version of it.
+type displacedCopy bool
+
+const (
+	// keepDisplaced writes the displaced file to prizm's backup directory.
+	// Correct whenever this apply discards a hand-edit, as `up` does.
+	keepDisplaced displacedCopy = false
+	// dropDisplaced throws it away. Only for a caller that has already read
+	// the file's content into prizm — `sync`, and only when it absorbed
+	// every edit rather than skipping some.
+	dropDisplaced displacedCopy = true
+)
+
 // applyRepo resolves, expands and writes one repo's env file. Any failure
 // leaves that repo's existing env file exactly as it was.
-func applyRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo) (int, error) {
+func applyRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo, displaced displacedCopy) (int, error) {
 	vars, err := buildEnv(app, wf, repo)
 	if err != nil {
 		return 0, err
@@ -361,7 +378,16 @@ func applyRepo(app *App, g store.Group, wf store.Workflow, repo store.Repo) (int
 		return 0, err
 	}
 
-	res, err := apply.Apply(builtPath, content, repo.Path, repo.EnvFile, app.Now())
+	var backupPath string
+	if displaced == keepDisplaced {
+		backupPath, err = config.BackupPath(
+			g.Name, wf.Name, repo.Name, repo.EnvFile, app.Now().Format(config.BackupStamp))
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	res, err := apply.Apply(builtPath, content, repo.Path, repo.EnvFile, backupPath)
 	if err != nil {
 		return 0, err
 	}

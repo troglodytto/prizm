@@ -136,18 +136,20 @@ func TestUpPreservesAnExistingRealEnvFile(t *testing.T) {
 		t.Fatalf("up error = %v", err)
 	}
 
-	entries, _ := os.ReadDir(beDir)
-	var found bool
-	for _, e := range entries {
-		if strings.Contains(e.Name(), ".prizm-backup.") {
-			found = true
-			if body, _ := os.ReadFile(filepath.Join(beDir, e.Name())); string(body) != "PRECIOUS=keepme\n" {
-				t.Errorf("backup content = %q, want the original", body)
-			}
-		}
+	// The backup lives under prizm's own directory, not in the repo — but it
+	// must still exist, and still hold the original.
+	backups := backupsFor(t, "XYZ")
+	if len(backups) != 1 {
+		t.Fatalf("backups = %v, want exactly 1; the user's original .env was destroyed", backups)
 	}
-	if !found {
-		t.Error("no .prizm-backup file; the user's original .env was destroyed")
+
+	dir := filepath.Join(os.Getenv("XDG_DATA_HOME"), "prizm", "backups", "XYZ")
+	if body, _ := os.ReadFile(filepath.Join(dir, backups[0])); string(body) != "PRECIOUS=keepme\n" {
+		t.Errorf("backup content = %q, want the original", body)
+	}
+
+	if stray := strayBackupsIn(t, beDir); stray != nil {
+		t.Errorf("repo holds %v; the backup must not be left beside the env file", stray)
 	}
 }
 

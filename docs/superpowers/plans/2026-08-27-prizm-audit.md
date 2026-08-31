@@ -1,7 +1,5 @@
 # prizm Phase 4 — Audit & Restore Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Make the history that Phase 2 has been recording since day one readable and reversible — a version list, a key-level diff between any two versions, a left/right carousel for stepping through them, and a restore.
 
 **Architecture:** An `internal/audit` package turns snapshot rows into numbered versions with diffs, using the same `sharedfile.Compare` every other comparison in prizm uses. Two renderers sit on it: plain text (`prizm audit`) and a Bubble Tea carousel (`prizm audit --browse`, automatic when a terminal is present). Restore is not a new write path — it replaces a scope's variables with an old snapshot's map and records the result as a new version tagged `restore`, so the audit trail never loses the fact that a rollback happened.

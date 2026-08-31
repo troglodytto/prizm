@@ -1,7 +1,5 @@
 # prizm Phase 5 — Docker & Lifecycle Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Let a workflow declare supporting services — the spec's DB tunnel is the motivating case — bring them up as part of `prizm up`, tear them down with `prizm down`, and show them in `prizm status`, without ever letting Docker's failures touch the env-application path.
 
 **Architecture:** An `internal/dockerctl` package wrapping the `docker compose` **CLI**, behind a `Runner` interface so every test asserts on the exact argv rather than starting containers. Compose attachments are stored per `(workflow)`, matching the spec's "shared infrastructure for the whole environment" framing. `up` applies env files first and *then* starts services, reporting the two phases separately, so a stopped Docker daemon can never corrupt or block a symlink swap.
