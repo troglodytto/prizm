@@ -386,7 +386,10 @@ git commit -m "docs: note that global.env is inert"
 After all four tasks:
 
 - [ ] `go vet ./... && go test -race ./...` passes
-- [ ] `grep -rn "global.env" --include='*.go' .` returns nothing
+- [ ] `grep -rn "global.env" --include='*.go' .` returns exactly three hits, all
+      in `internal/cli/global_test.go` (currently around lines 36, 47, and 63 —
+      line numbers may drift) — two doc comments plus a deliberate fixture
+      path, not production code, and not a regression to fix
 - [ ] Manual check against a scratch group, which is the original repro:
 
 ```bash

@@ -43,8 +43,15 @@ func TestBagSyncLeavesGroupGlobalsAlone(t *testing.T) {
 		t.Fatalf("var --global: %v", err)
 	}
 
-	// Create an empty global.env file to simulate the stale file that would
-	// have been created by the old `prizm global` workflow.
+	// This is a deliberate trip-wire, not a simulation of something harmless.
+	// At HEAD nothing reads shared/<group>/global.env, so an empty file here
+	// should have zero effect on the group layer; if a file-backed group
+	// layer is ever reintroduced at this exact path, this fixture is what
+	// catches it deleting REGION again. The path is hardcoded because
+	// config.GlobalPath was removed along with the old layer — there is no
+	// helper left to build it. Do not delete this fixture just because no
+	// production code currently produces the file; that absence is the
+	// point.
 	dataDir := os.Getenv("XDG_DATA_HOME")
 	if dataDir == "" {
 		t.Fatal("XDG_DATA_HOME not set")
@@ -73,5 +80,21 @@ func TestBagSyncLeavesGroupGlobalsAlone(t *testing.T) {
 	if vars["REGION"] != "us-east-2" {
 		t.Errorf("REGION = %q after a bag sync, want %q — syncing one bag must not "+
 			"reconcile the group layer", vars["REGION"], "us-east-2")
+	}
+
+	// The deleted syncAllGlobals also had a no-arg branch that looped every
+	// group's bags. Cover the unscoped form too, so both ways of invoking
+	// shared-sync are checked by this one test.
+	if err := h.run(t, "shared-sync", "--yes"); err != nil {
+		t.Fatalf("shared-sync (unscoped): %v", err)
+	}
+
+	vars, err = h.app.Store.GroupVars(g.ID)
+	if err != nil {
+		t.Fatalf("GroupVars: %v", err)
+	}
+	if vars["REGION"] != "us-east-2" {
+		t.Errorf("REGION = %q after an unscoped shared-sync, want %q — syncing all bags "+
+			"must not reconcile the group layer", vars["REGION"], "us-east-2")
 	}
 }

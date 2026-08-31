@@ -30,8 +30,10 @@ func (s *Store) GroupVars(groupID int64) (map[string]string, error) {
 	return s.queryVars(`SELECT key, value FROM group_vars WHERE group_id = ?`, groupID)
 }
 
-// ReplaceGroupVars makes the group-global layer exactly vars. The backing file
-// is authoritative, so a key absent from it is deleted rather than merged.
+// ReplaceGroupVars makes the group-global layer exactly vars. The caller is
+// handing over the complete, intended layer (an edit session, a sync), so a
+// key absent from vars is deleted rather than merged — a partial map is
+// never treated as a set of additions.
 func (s *Store) ReplaceGroupVars(groupID int64, vars map[string]string) error {
 	for key := range vars {
 		if err := checkKey(key); err != nil {

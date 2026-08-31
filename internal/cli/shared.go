@@ -265,8 +265,8 @@ func syncBag(app *App, bag store.SharedGroupRef, yes bool) error {
 	return nil
 }
 
-// renderVarDiff prints a key-level diff. Shared by bags and the group file so
-// every reconciliation in prizm reads the same.
+// renderVarDiff prints a key-level diff. Used by the bag sync path so every
+// bag reconciliation in prizm reads the same.
 func renderVarDiff(app *App, diff sharedfile.Diff) {
 	for _, key := range diff.Added {
 		app.say("  " + style.Row(style.Add, key, ""))

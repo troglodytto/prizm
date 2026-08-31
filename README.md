@@ -313,8 +313,10 @@ takes over a repo that already had a real `.env`, it is renamed to
 
 Older versions also kept the group-global layer in `shared/<group>/global.env`,
 loaded by `shared-sync`. That layer now lives in `prizm.db` and applies the
-moment you save, so a `global.env` left in your data directory is inert and can
-be deleted.
+moment you save, so a leftover `global.env` is inert. Check it before deleting
+it: anything you edited there but never loaded with `shared-sync` never reached
+the database. Re-enter those values with `prizm var <group> --global KEY=VALUE`
+(or `prizm global <group>`), then delete the file.
 
 Values are AES-256-GCM encrypted with a key held in your OS keychain; variable
 *names* stay in plaintext, which is what keeps shell completion instant. Nothing
