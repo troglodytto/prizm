@@ -182,10 +182,6 @@ func newSharedSyncCmd(app *App) *cobra.Command {
 			"the bag. Nothing is written without confirmation.",
 		Args: usageArgs(cobra.MaximumNArgs(3)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := syncAllGlobals(app, args, yes); err != nil {
-				return err
-			}
-
 			bags, err := selectBags(app, args)
 			if err != nil {
 				return err
