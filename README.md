@@ -24,7 +24,7 @@ One command sets all four up, each with its own env file, built from its own lay
 
 ![prizm ls my-saas-platform](docs/screenshots/ls.png)
 
-> **v0.6.2.** In daily use. Groups, repos and workflows; four layers of variables with interpolation; `status`, `sync`, `audit` with restore, `$EDITOR` editing, dry runs, an interactive picker, compose services, and directory-aware completion for all of it.
+> **v0.8.1.** In daily use. Groups, repos and workflows; four layers of variables with interpolation; `status`, `sync`, `audit` with restore, `$EDITOR` editing, dry runs, an interactive picker, compose services, and directory-aware completion for all of it.
 
 ## Contents
 
