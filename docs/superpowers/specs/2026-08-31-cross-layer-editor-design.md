@@ -62,6 +62,17 @@ until applied. Applying shows the full diff and which env files it would
 rewrite, and records **one** snapshot for the session — so an unwanted editing
 session undoes as a single unit rather than as 566 entries in `audit`.
 
+**History is session-scoped.** The pending rail's undo (`[u]`) is in-memory and
+lives only as long as the editor is open: it walks back staged changes before
+they are applied, and quitting discards it. The editor never writes its own
+history, and never reads one back — there is no "reopen where I left off".
+Everything that survives a session is `audit`'s job, which already answers
+"what did this look like before" across sessions and can restore it.
+
+The division is worth stating because it decides what the editor does *not*
+store: no per-change rows, no editor-owned journal, no resumable session state.
+One snapshot on apply is the entire persistent footprint.
+
 ## Promotion, and why it leaves a reference
 
 Promoting a value moves it to a broader layer under an internal name and leaves
@@ -219,5 +230,6 @@ the style of the existing `internal/tui/render_test.go`.
 
 ## Deliberately cut
 
-No cross-group view. No in-editor undo history beyond the session snapshot —
-`audit --restore` already does this. No value history in cells.
+No cross-group view. No persisted editor history — in-session undo only, with
+`audit --restore` owning everything across sessions. No resumable sessions. No
+value history in cells.
