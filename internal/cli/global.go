@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/spf13/cobra"
 
@@ -24,32 +23,15 @@ func newGlobalCmd(app *App) *cobra.Command {
 			"They are the lowest layer, so they are defaults rather than bindings:\n" +
 			"when a value stops being universal, any layer above simply overrides\n" +
 			"it and nothing has to be unwired first.\n\n" +
-			"Run `prizm shared-sync` afterwards to load your edits.",
+			"What you save is applied immediately. This is the same layer as\n" +
+			"`prizm edit --global`.",
 		Args: usageArgs(cobra.MaximumNArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			g, _, err := app.splitGroup(args, 0)
 			if err != nil {
 				return err
 			}
-
-			path, err := ensureGlobalFile(app, g)
-			if err != nil {
-				return err
-			}
-
-			editor := os.Getenv("EDITOR")
-			if editor == "" {
-				editor = "vi"
-			}
-
-			ed := exec.Command(editor, path)
-			ed.Stdin, ed.Stdout, ed.Stderr = os.Stdin, os.Stdout, os.Stderr
-			if err := ed.Run(); err != nil {
-				return fmt.Errorf("running %s: %w", editor, err)
-			}
-
-			app.hint("run `prizm shared-sync` to apply your edits")
-			return nil
+			return editScope(app, store.GroupScope(g.ID), g.Name+" (global)")
 		},
 	}
 }
